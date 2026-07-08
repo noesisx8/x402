@@ -1,0 +1,27 @@
+{
+  "name": "@x402-project/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "start:deploy": "node dist/index.js",
+    "dev:deploy-host-only": "node --watch dist/index.js"
+  },
+  "dependencies": {
+    "@x402/core": "^2.17.0",
+    "@x402/evm": "^2.17.0",
+    "@x402/express": "^2.17.0",
+    "express": "^4.21.2",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3"
+  }
+}
