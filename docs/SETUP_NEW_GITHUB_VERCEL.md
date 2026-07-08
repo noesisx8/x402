@@ -41,7 +41,7 @@ Web: **New repository** → name e.g. `x402` (private recommended) → **no** RE
 
 ```bash
 cd /home/willd/Projects/x402
-git remote add origin git@github.com:NEW_USERNAME/x402.git   # or your repo name
+git remote add origin git@github.com:noesisx8/x402.git   # project account
 git push -u origin master
 ```
 

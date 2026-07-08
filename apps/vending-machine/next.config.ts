@@ -1,13 +1,8 @@
 import type { NextConfig } from "next";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-
-const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  output: "standalone",
-  outputFileTracingRoot: root,
+  ...(process.env.DOCKER_BUILD === "1" ? { output: "standalone" as const } : {}),
 };
 
 export default nextConfig;
