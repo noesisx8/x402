@@ -75,6 +75,9 @@ export default function TestPage() {
       let extra = "";
       if (paymentResponse) {
         extra = `\n\n(settlement header present, length ${paymentResponse.length})`;
+      } else if (res.status === 402) {
+        extra =
+          "\n\nStill 402: not settled. Use Pay & GET (not the unpaid button), approve USDC in wallet, keep query string unchanged. Weather costs $0.003 USDC on Base.";
       }
       setOut(`HTTP ${res.status}\n${text}${extra}`);
     } catch (e) {
@@ -130,7 +133,7 @@ export default function TestPage() {
           onClick={callUnpaid}
           className="rounded border border-zinc-600 px-4 py-2 text-sm hover:bg-zinc-800 disabled:opacity-50"
         >
-          GET (no payment)
+          GET (no payment) — always 402
         </button>
         <button
           type="button"

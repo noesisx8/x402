@@ -32,3 +32,4 @@ You are implementing **x402 V2** (payment metadata in headers; `@x402/*` npm org
 
 - FAQ cheat sheet: `docs/CDP_X402_FAQ_REFERENCE.md` ← **https://docs.cdp.coinbase.com/x402/support/faq**
 - Service demand: `docs/TOP_X402_SERVICES.md`
+- Hub roadmap (Base mainnet, ecosystem, real payments): `docs/ROADMAP_ULTIMATE_VENDING_HUB.md`
