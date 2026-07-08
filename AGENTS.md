@@ -27,3 +27,8 @@ You are implementing **x402 V2** (payment metadata in headers; `@x402/*` npm org
 - Target **50%+ margin** after facilitator + infra + upstream data costs
 - Log: 402 count, paid conversion, revenue/call, agent vs human `User-Agent`
 - Prefer **exact** scheme first; add **batch-settlement** when volume > ~1k tx/day
+
+## Docs (Coinbase CDP)
+
+- FAQ cheat sheet: `docs/CDP_X402_FAQ_REFERENCE.md` ← **https://docs.cdp.coinbase.com/x402/support/faq**
+- Service demand: `docs/TOP_X402_SERVICES.md`

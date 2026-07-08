@@ -8,6 +8,8 @@ Modular Next.js 15 App Router hub: add paid utilities in `lib/services/registry.
 
 See `../../docs/TOP_X402_SERVICES.md` — Tier-1 utilities (email, IP, DNS, crypto, QR) match agentsvc / PayAPI demand.
 
+**Coinbase CDP x402 FAQ (facilitators, Bazaar, networks):** `../../docs/CDP_X402_FAQ_REFERENCE.md` — live: https://docs.cdp.coinbase.com/x402/support/faq
+
 ## Quick start
 
 ```bash
@@ -36,7 +38,7 @@ npm run dev   # local UI only; paid flow needs facilitator + funded wallet
 | Variable | Required | Notes |
 |----------|----------|-------|
 | `X402_PAY_TO_ADDRESS` | yes | USDC receive address |
-| `X402_FACILITATOR_URL` | no | Default `https://x402.org/facilitator`; Coinbase CDP URL when using CDP keys |
+| `X402_FACILITATOR_URL` | no | Dev: `https://x402.org/facilitator`; prod/Bazaar: `https://api.cdp.coinbase.com/platform/v2/x402` (see `docs/CDP_X402_FAQ_REFERENCE.md`) |
 | `X402_NETWORK_MODE` | no | `base-sepolia` (default) or `base` |
 | `PUBLIC_BASE_URL` | yes in prod | e.g. `https://your-app.vercel.app` |
 | `CDP_API_KEY_ID` / `CDP_API_KEY_SECRET` | optional | When facilitator is Coinbase CDP |
