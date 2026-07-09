@@ -5,3 +5,6 @@ dist/
 !.env.example
 *.log
 .DS_Store
+*.tsbuildinfo
+apps/*/.next/
+apps/*/node_modules/
