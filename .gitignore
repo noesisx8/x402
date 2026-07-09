@@ -8,3 +8,6 @@ dist/
 *.tsbuildinfo
 apps/*/.next/
 apps/*/node_modules/
+
+.listing-work/
+
