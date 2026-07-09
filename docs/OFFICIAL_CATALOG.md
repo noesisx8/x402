@@ -48,6 +48,8 @@ npm run smoke:unpaid   # production 402 + discovery
 
 > **x402 Vending Machine** — Base mainnet pay-per-call utilities for agents: DNS, TLS, WHOIS, HTTP HEAD, redirect trace, email MX, FX, IP, crypto spot, QR. Discovery: https://vending-machine-seven.vercel.app/.well-known/x402
 
+**awesome-x402 PR:** https://github.com/xpaysh/awesome-x402/pull/778
+
 ## Example paid flow
 
 1. `GET /api/v/dns-resolve?host=example.com` → **402** + `Payment-Required`
