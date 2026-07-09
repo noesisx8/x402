@@ -44,15 +44,33 @@ Sync with **git pull / push**, not full `node_modules` copies.
 
 ## Operator: finish 0.2 (portalv2 only)
 
-On **portalv2** (not pikatop), Node 20+:
+On **portalv2** (this PC). `npm install` already done under `apps/vending-machine`.
+
+**Option A — env file (preferred, never paste key in chat):**
 
 ```powershell
 cd C:\Users\willd\x402\apps\vending-machine
-npm install --legacy-peer-deps
-$env:X402_PRIVATE_KEY = "0x…"   # Base USDC funded; never commit
+# create gitignored file (one line):
+# X402_PRIVATE_KEY=0xYOUR_FUNDED_BASE_KEY
+notepad .env.local
 npm run smoke:paid
 ```
 
-Or browser: https://vending-machine-seven.vercel.app/test → Connect wallet → Pay & GET.
+**Option B — session env:**
+
+```powershell
+cd C:\Users\willd\x402\apps\vending-machine
+$env:X402_PRIVATE_KEY = "0x…"
+npm run smoke:paid
+```
+
+**Option C — browser:** https://vending-machine-seven.vercel.app/test → Connect wallet → Pay & GET.
 
 Confirm USDC leave the payer and settle toward pay-to on Basescan.
+
+### portalv2 progress (2026-07-09)
+
+- [x] `gh` as **noesisx8**; `git push origin master` OK
+- [x] `npm install --legacy-peer-deps` in `apps/vending-machine`
+- [x] `npm run test:unit` + `npm run smoke:unpaid` (all pass)
+- [ ] `npm run smoke:paid` — blocked until `X402_PRIVATE_KEY` is set on portalv2
