@@ -1,6 +1,8 @@
 # x402 — agent-native micropayment services
 
-HTTP 402 pay-per-call APIs. **Do not run production servers on the daily-driver workstation.** Deploy to **Railway** (public edge) and/or **portalv2** (private / Tailscale).
+HTTP 402 pay-per-call APIs.
+
+**Hosts:** **portalv2** = ops/deploy/paid smoke · **pikatop** = daily driver (no production API, no funded mainnet keys) · public edge = **Vercel** / **Railway**. See `docs/HOSTS.md`.
 
 ## Architecture
 
@@ -30,9 +32,9 @@ Facilitator — Coinbase CDP hosted (default) or self-hosted proxy (apps/facilit
 ## Deploy targets (only)
 
 1. **Railway** — `deploy/railway/README.md` — public URL, CDP facilitator keys in Railway variables.
-2. **portalv2** — `deploy/portalv2/README.md` — bind `127.0.0.1` or Tailscale Serve; no listeners on daily driver.
+2. **portalv2** — `deploy/portalv2/README.md` — private/Tailscale ops PC; paid E2E and optional `apps/api` here.
 
-Local machine: edit code, `npm test` / dry-run builds OK. **No `npm start` / `docker compose up` for API in daily workflow** unless you explicitly opt into testnet on a throwaway port.
+**pikatop (daily driver):** edit code and dry-run builds OK. **No** production `npm start` / systemd API / funded `smoke:paid` on pikatop.
 
 ## First profitable MVP (suggested)
 

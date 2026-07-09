@@ -31,10 +31,13 @@ node scripts/phase0-unit.mjs          # price cap + settle-status rules
 node scripts/smoke-unpaid.mjs         # production 402 + discovery (no wallet)
 ```
 
-**Paid E2E (funded key, deploy host only):**
+**Paid E2E (funded key on portalv2 only — not pikatop):**
 
-```bash
-X402_PRIVATE_KEY=0x… node scripts/paid-fetch.mjs
+```powershell
+# portalv2
+cd C:\Users\willd\x402\apps\vending-machine
+$env:X402_PRIVATE_KEY="0x…"
+npm run smoke:paid
 ```
 
 ## Rate limits & caps (Phase 0.5)

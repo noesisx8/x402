@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * Phase 0.2 paid E2E — run ONLY on a deploy host / throwaway machine with a funded key.
- * Never commit private keys. Never run production paid smoke on the daily-driver by default.
+ * Phase 0.2 paid E2E — run on **portalv2** (ops PC) with a funded key.
+ * Never commit private keys.
+ * Never run on **pikatop** (daily driver) unless the user explicitly opts in.
  *
  * Env:
  *   X402_PRIVATE_KEY   0x… EVM private key with Base USDC
@@ -9,8 +10,8 @@
  *   SLUG               default qr-code
  *   QUERY              default data=paid-e2e
  *
- * Example (portalv2):
- *   X402_PRIVATE_KEY=0x… node scripts/paid-fetch.mjs
+ * Example (portalv2 PowerShell):
+ *   $env:X402_PRIVATE_KEY="0x…"; npm run smoke:paid
  */
 
 import { wrapFetchWithPaymentFromConfig } from "@x402/fetch";

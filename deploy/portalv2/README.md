@@ -1,5 +1,7 @@
 # portalv2 deployment
 
+**portalv2** is the ops PC (Windows on Tailscale). **pikatop** is the daily driver — do not enable this unit there.
+
 Run the same `apps/api` artifact on **portalv2** when you want private/Tailscale access or colocate with other homelab services.
 
 ## Build on portalv2 (recommended)
@@ -47,7 +49,7 @@ curl -sS http://127.0.0.1:18080/health
 
 ## Daily driver rule
 
-Sync code via git; **do not** enable this unit on the daily-driver machine. SSH to portalv2 for deploy/restart.
+Sync code via git; **do not** enable this unit on **pikatop** (daily driver). Do deploy/restart and paid smoke **on portalv2**.
 
 ## Tailscale Serve (optional)
 

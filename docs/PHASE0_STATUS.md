@@ -2,23 +2,33 @@
 
 Last updated: 2026-07-09
 
-## Canonical locations
+## Host roles
+
+| Host | Role |
+|------|------|
+| **portalv2** (this Windows PC) | Ops — paid E2E, secrets, deploy |
+| **pikatop** | Daily driver — **do not** run funded smoke or production API here |
+| GitHub `noesisx8/x402` | Canonical remote |
+
+See `docs/HOSTS.md`.
+
+## Canonical copies
 
 | Path | Role |
 |------|------|
-| `pikatop:/home/willd/Projects/x402` | Source of truth monorepo + git |
-| `C:\Users\willd\x402` | Clean Windows working copy (source only; no `node_modules`) |
-| `C:\Users\willd\pikatoptermux\x402` | Docs/agent mirror for Termux handoff |
+| `C:\Users\willd\x402` on **portalv2** | Ops working copy (clean source; `npm install` when needed) |
+| `pikatop:~/Projects/x402` | Optional daily-driver clone for editing only |
+| `C:\Users\willd\pikatoptermux\x402` | Docs/agent mirror |
+| `origin/master` | Source of truth |
 
-Do **not** use incomplete partial clones. After edits, sync pikatop ↔ Windows before push.
+Sync with **git pull / push**, not full `node_modules` copies.
 
 ## Live production (verified unpaid)
 
 | Check | Result |
 |-------|--------|
 | URL | https://vending-machine-seven.vercel.app |
-| `GET /api/health` | 200, `network_mode=base`, CDP auth when keys present |
-| `GET /api/config/client` | `eip155:8453` Base Mainnet |
+| `GET /api/health` | 200, `network_mode=base`, CDP auth, caps |
 | Unpaid `GET /api/v/qr-code?data=…` | **402** + `Payment-Required` (amount `2000` = $0.002) |
 | Pay-to | `0xc648116b5deBE4AF7D78838AA468d07e0A9Ab697` |
 | Facilitator | CDP `https://api.cdp.coinbase.com/platform/v2/x402` |
@@ -26,20 +36,23 @@ Do **not** use incomplete partial clones. After edits, sync pikatop ↔ Windows 
 ## Checklist
 
 - [x] 0.1 Production env on Base + CDP
-- [ ] 0.2 Paid E2E once with funded wallet (`npm run smoke:paid`)
+- [ ] 0.2 Paid E2E once with funded wallet — **run on portalv2** (`npm run smoke:paid`)
 - [x] 0.3 `/test` UI
 - [x] 0.4 Idempotency docs + unit contract
 - [x] 0.5 Price cap + unpaid rate limit
 - [x] 0.6 Lifecycle analytics + token-gated admin stats
 
-## Operator: finish 0.2
+## Operator: finish 0.2 (portalv2 only)
 
-On portalv2 or any non-daily-driver with Node 20+:
+On **portalv2** (not pikatop), Node 20+:
 
-```bash
-cd ~/Projects/x402/apps/vending-machine   # or Windows clone
+```powershell
+cd C:\Users\willd\x402\apps\vending-machine
 npm install --legacy-peer-deps
-X402_PRIVATE_KEY=0x… npm run smoke:paid
+$env:X402_PRIVATE_KEY = "0x…"   # Base USDC funded; never commit
+npm run smoke:paid
 ```
 
-Confirm USDC leave the payer wallet and settle toward pay-to on Basescan.
+Or browser: https://vending-machine-seven.vercel.app/test → Connect wallet → Pay & GET.
+
+Confirm USDC leave the payer and settle toward pay-to on Basescan.
