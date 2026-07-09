@@ -36,7 +36,7 @@ Sync with **git pull / push**, not full `node_modules` copies.
 ## Checklist
 
 - [x] 0.1 Production env on Base + CDP
-- [ ] 0.2 Paid E2E once with funded wallet — **run on portalv2** (`npm run smoke:paid`)
+- [x] 0.2 Paid E2E — **browser `/test` on portalv2** (wallet + Base USDC → 200 + settlement header). Script path optional.
 - [x] 0.3 `/test` UI
 - [x] 0.4 Idempotency docs + unit contract
 - [x] 0.5 Price cap + unpaid rate limit
@@ -73,4 +73,4 @@ Confirm USDC leave the payer and settle toward pay-to on Basescan.
 - [x] `gh` as **noesisx8**; `git push origin master` OK
 - [x] `npm install --legacy-peer-deps` in `apps/vending-machine`
 - [x] `npm run test:unit` + `npm run smoke:unpaid` (all pass)
-- [ ] `npm run smoke:paid` — blocked until `X402_PRIVATE_KEY` is set on portalv2
+- [x] **0.2 paid E2E (browser):** `/test` → wallet on Base with USDC → `crypto-prices` → **HTTP 200** + `PAYMENT-RESPONSE` (settlement header length 236). No private key file required — preferred human path.

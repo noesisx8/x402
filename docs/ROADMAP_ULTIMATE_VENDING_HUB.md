@@ -21,7 +21,7 @@
 | # | Task | Owner | Status | Done when |
 |---|------|--------|--------|-----------|
 | 0.1 | Confirm Vercel **Production** env: `X402_NETWORK_MODE=base`, pay-to, CDP keys, `PUBLIC_BASE_URL` | Ops | **Done** (live: `base`, pay-to `0xc648…`, CDP JWT) | Redeploy after any env change |
-| 0.2 | **Paid E2E smoke** on mainnet: wallet with **Base USDC** → paid GET on `/api/v/qr-code` → **200** + JSON | You | **Script ready** (`scripts/paid-fetch.mjs`); run once with funded key | Tx visible on Base; pay-to balance increases |
+| 0.2 | **Paid E2E smoke** on mainnet: wallet with **Base USDC** → paid GET → **200** + JSON | You | **Done** (2026-07-09): browser `/test` → `crypto-prices` → 200 + settlement header | Tx / settlement header present; pay-to receives USDC |
 | 0.3 | **`/test` paid flow** (wallet + `@x402/fetch`) | Dev | **Done** | Button: Pay & GET → 200 |
 | 0.4 | **Idempotency:** document retry behavior; no settle on handler ≥400 | Dev | **Done** (`docs/SECURITY.md` + `scripts/phase0-unit.mjs`) | Note + unit contract |
 | 0.5 | **Caps** + unpaid **rate limit** | Dev | **Done** (`lib/pricing.ts`, `lib/rate-limit.ts`) | Abuse can’t drain facilitator quota |
