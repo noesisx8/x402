@@ -95,6 +95,66 @@ function isPrivateIp(ip: string): boolean {
   return false;
 }
 
+/** Cloudflare DNS-over-HTTPS (JSON) — shared low-level helper. */
+export async function dohAnswers(
+  name: string,
+  type: "A" | "AAAA" | "MX" | "TXT" | "NS",
+): Promise<{ type: number; data: string; TTL?: number }[]> {
+  const url = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(name)}&type=${type}`;
+  const res = await fetch(url, {
+    headers: { Accept: "application/dns-json" },
+    signal: AbortSignal.timeout(5000),
+  });
+  if (!res.ok) throw new Error(`doh_${type}_${res.status}`);
+  const j = (await res.json()) as {
+    Status?: number;
+    Answer?: { type: number; data: string; TTL?: number }[];
+  };
+  // Status 0 = NOERROR; 3 = NXDOMAIN
+  if (j.Status === 3) return [];
+  return j.Answer ?? [];
+}
+
+export type MxRecord = { priority: number; host: string };
+
+/** Resolve MX via DoH. Null MX (RFC 7505 "0 .") → empty list + null_mx flag. */
+export async function resolveMx(domainRaw: string): Promise<{
+  domain: string;
+  mx: MxRecord[];
+  null_mx: boolean;
+  has_mx: boolean;
+  source: "doh";
+  ms: number;
+}> {
+  const domain = normalizeHost(domainRaw);
+  const started = Date.now();
+  const answers = await dohAnswers(domain, "MX");
+  // type 15 = MX; data like "10 mail.example.com." or "0 ."
+  const mx: MxRecord[] = [];
+  let null_mx = false;
+  for (const a of answers) {
+    if (a.type !== 15) continue;
+    const parts = a.data.trim().split(/\s+/);
+    if (parts.length < 2) continue;
+    const priority = Number(parts[0]);
+    let host = parts.slice(1).join(" ").replace(/\.$/, "");
+    if (host === "" || host === ".") {
+      null_mx = true;
+      continue;
+    }
+    mx.push({ priority, host: host.toLowerCase() });
+  }
+  mx.sort((a, b) => a.priority - b.priority);
+  return {
+    domain,
+    mx,
+    null_mx,
+    has_mx: mx.length > 0 && !null_mx,
+    source: "doh",
+    ms: Date.now() - started,
+  };
+}
+
 /** Cloudflare DNS-over-HTTPS (JSON). */
 export async function resolveDns(host: string): Promise<DnsResult> {
   const h = normalizeHost(host);
@@ -105,17 +165,9 @@ export async function resolveDns(host: string): Promise<DnsResult> {
 
   const started = Date.now();
   const doh = async (type: "A" | "AAAA"): Promise<string[]> => {
-    const url = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(h)}&type=${type}`;
-    const res = await fetch(url, {
-      headers: { Accept: "application/dns-json" },
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!res.ok) throw new Error(`doh_${type}_${res.status}`);
-    const j = (await res.json()) as {
-      Answer?: { type: number; data: string }[];
-    };
     const want = type === "A" ? 1 : 28;
-    return (j.Answer ?? [])
+    const answers = await dohAnswers(h, type);
+    return answers
       .filter((a) => a.type === want)
       .map((a) => a.data.replace(/\.$/, ""));
   };
@@ -189,39 +241,52 @@ export async function assertPublicHostResolves(host: string): Promise<void> {
   }
 }
 
+async function singleHeadOrGet(url: string): Promise<Response> {
+  try {
+    return await fetch(url, {
+      method: "HEAD",
+      redirect: "manual",
+      signal: AbortSignal.timeout(7000),
+      headers: { "User-Agent": "x402-vending-machine/0.1 (+infra-probe)" },
+    });
+  } catch {
+    return await fetch(url, {
+      method: "GET",
+      redirect: "manual",
+      signal: AbortSignal.timeout(7000),
+      headers: {
+        "User-Agent": "x402-vending-machine/0.1 (+infra-probe)",
+        Range: "bytes=0-0",
+      },
+    });
+  }
+}
+
 export async function httpHead(urlRaw: string): Promise<HeadResult> {
   const u = assertPublicUrl(urlRaw);
   await assertPublicHostResolves(u.hostname);
 
   const started = Date.now();
-  let res: Response;
-  try {
-    res = await fetch(u.toString(), {
-      method: "HEAD",
-      redirect: "follow",
-      signal: AbortSignal.timeout(7000),
-      headers: { "User-Agent": "x402-vending-machine/0.1 (+infra-probe)" },
-    });
-  } catch (e) {
-    // Some origins reject HEAD — fall back to GET with no body read
-    try {
-      res = await fetch(u.toString(), {
-        method: "GET",
-        redirect: "follow",
-        signal: AbortSignal.timeout(7000),
-        headers: {
-          "User-Agent": "x402-vending-machine/0.1 (+infra-probe)",
-          Range: "bytes=0-0",
-        },
-      });
-    } catch (e2) {
-      throw new Error(`head_failed: ${String(e2).slice(0, 120)}`);
+  // Follow redirects ourselves so we can SSRF-check each hop
+  let current = u.toString();
+  let res: Response | null = null;
+  for (let hop = 0; hop < 8; hop++) {
+    const hopUrl = assertPublicUrl(current);
+    await assertPublicHostResolves(hopUrl.hostname);
+    res = await singleHeadOrGet(hopUrl.toString());
+    if (res.status >= 300 && res.status < 400) {
+      const loc = res.headers.get("location");
+      if (!loc) break;
+      current = new URL(loc, hopUrl).toString();
+      continue;
     }
+    break;
   }
+  if (!res) throw new Error("head_failed");
 
-  // Block redirect into private hosts
+  const finalUrl = res.url && res.url !== "" ? res.url : current;
   try {
-    const final = new URL(res.url);
+    const final = new URL(finalUrl);
     if (isPrivateIp(final.hostname)) throw new Error("redirect_private_ip");
   } catch (e) {
     if (String(e).includes("private")) throw e;
@@ -229,7 +294,7 @@ export async function httpHead(urlRaw: string): Promise<HeadResult> {
 
   return {
     url: u.toString(),
-    final_url: res.url,
+    final_url: finalUrl,
     status: res.status,
     ok: res.ok,
     ms: Date.now() - started,
@@ -239,6 +304,146 @@ export async function httpHead(urlRaw: string): Promise<HeadResult> {
       "content-length": res.headers.get("content-length"),
       location: res.headers.get("location"),
     },
+  };
+}
+
+export type RedirectHop = {
+  url: string;
+  status: number;
+  location: string | null;
+  ms: number;
+};
+
+export type RedirectTraceResult = {
+  start_url: string;
+  final_url: string;
+  hop_count: number;
+  hops: RedirectHop[];
+  final_status: number;
+  ms_total: number;
+};
+
+/** Follow redirects manually (max 10 hops), SSRF-safe, real statuses only. */
+export async function redirectTrace(urlRaw: string, maxHops = 10): Promise<RedirectTraceResult> {
+  const start = assertPublicUrl(urlRaw);
+  await assertPublicHostResolves(start.hostname);
+  const hops: RedirectHop[] = [];
+  const t0 = Date.now();
+  let current = start.toString();
+  let finalStatus = 0;
+
+  for (let i = 0; i < maxHops; i++) {
+    const hopUrl = assertPublicUrl(current);
+    await assertPublicHostResolves(hopUrl.hostname);
+    const hopStart = Date.now();
+    let res: Response;
+    try {
+      res = await singleHeadOrGet(hopUrl.toString());
+    } catch (e) {
+      throw new Error(`redirect_hop_failed: ${String(e).slice(0, 120)}`);
+    }
+    const location = res.headers.get("location");
+    hops.push({
+      url: hopUrl.toString(),
+      status: res.status,
+      location,
+      ms: Date.now() - hopStart,
+    });
+    finalStatus = res.status;
+    if (res.status >= 300 && res.status < 400 && location) {
+      current = new URL(location, hopUrl).toString();
+      continue;
+    }
+    break;
+  }
+
+  return {
+    start_url: start.toString(),
+    final_url: hops.length ? hops[hops.length - 1].url : start.toString(),
+    hop_count: hops.length,
+    hops,
+    final_status: finalStatus,
+    ms_total: Date.now() - t0,
+  };
+}
+
+export type FxRateResult = {
+  base: string;
+  date: string | null;
+  rates: Record<string, number>;
+  source: string;
+  as_of_utc: string | null;
+  ms: number;
+};
+
+const FX_CCY = /^[A-Z]{3}$/;
+
+/**
+ * Live FX rates (no mock). Primary: Frankfurter (ECB). Fallback: open.er-api.
+ */
+export async function fxRates(baseRaw: string, symbolsRaw?: string): Promise<FxRateResult> {
+  const base = baseRaw.trim().toUpperCase() || "USD";
+  if (!FX_CCY.test(base)) throw new Error("invalid_base_currency");
+  const symbols = (symbolsRaw ?? "EUR,GBP,JPY")
+    .split(",")
+    .map((s) => s.trim().toUpperCase())
+    .filter((s) => FX_CCY.test(s) && s !== base)
+    .slice(0, 20);
+  if (symbols.length === 0) throw new Error("missing_or_invalid_symbols");
+
+  const started = Date.now();
+  const symParam = symbols.join(",");
+
+  // 1) Frankfurter (ECB reference rates)
+  try {
+    const url = `https://api.frankfurter.dev/v1/latest?base=${encodeURIComponent(base)}&symbols=${encodeURIComponent(symParam)}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(7000) });
+    if (res.ok) {
+      const j = (await res.json()) as {
+        amount?: number;
+        base?: string;
+        date?: string;
+        rates?: Record<string, number>;
+      };
+      if (j.rates && Object.keys(j.rates).length > 0) {
+        return {
+          base: j.base ?? base,
+          date: j.date ?? null,
+          rates: j.rates,
+          source: "frankfurter.dev (ECB)",
+          as_of_utc: j.date ? `${j.date}T00:00:00.000Z` : null,
+          ms: Date.now() - started,
+        };
+      }
+    }
+  } catch {
+    // fall through
+  }
+
+  // 2) open.er-api free tier
+  const res2 = await fetch(`https://open.er-api.com/v6/latest/${encodeURIComponent(base)}`, {
+    signal: AbortSignal.timeout(7000),
+  });
+  if (!res2.ok) throw new Error(`fx_upstream_${res2.status}`);
+  const j2 = (await res2.json()) as {
+    result?: string;
+    base_code?: string;
+    time_last_update_utc?: string;
+    rates?: Record<string, number>;
+  };
+  if (j2.result !== "success" || !j2.rates) throw new Error("fx_upstream_invalid");
+  const rates: Record<string, number> = {};
+  for (const s of symbols) {
+    if (typeof j2.rates[s] === "number") rates[s] = j2.rates[s];
+  }
+  if (Object.keys(rates).length === 0) throw new Error("fx_symbols_unavailable");
+  return {
+    base: j2.base_code ?? base,
+    date: j2.time_last_update_utc ? j2.time_last_update_utc.slice(0, 16) : null,
+    rates,
+    source: "open.er-api.com",
+    as_of_utc: j2.time_last_update_utc ?? null,
+    ms: Date.now() - started,
   };
 }
 

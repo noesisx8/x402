@@ -1,44 +1,99 @@
 import type { VendingHandler } from "@/lib/services/types";
 import {
+  fxRates,
   hostFromBundleQuery,
   httpHead,
+  redirectTrace,
   resolveDns,
+  resolveMx,
   tlsCertPeek,
   whoisLite,
 } from "@/lib/services/infra";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** Expanded disposable / throwaway domains (heuristic list — not a paid blocklist). */
+const DISPOSABLE_DOMAINS = new Set(
+  [
+    "mailinator.com",
+    "tempmail.com",
+    "guerrillamail.com",
+    "guerrillamail.org",
+    "10minutemail.com",
+    "temp-mail.org",
+    "yopmail.com",
+    "trashmail.com",
+    "discard.email",
+    "sharklasers.com",
+    "getnada.com",
+    "maildrop.cc",
+  ].map((d) => d.toLowerCase()),
+);
+
+/**
+ * Email validation with real DoH MX lookup (no mock).
+ * Format + disposable heuristic + live MX records.
+ */
 export const emailValidateHandler: VendingHandler = async (_req, query) => {
   const email = String(query.email ?? "").trim().toLowerCase();
   if (!email) throw new Error("missing email");
-  const valid = emailRegex.test(email);
-  const disposableDomains = ["mailinator.com", "tempmail.com", "guerrillamail.com"];
+  const valid_format = emailRegex.test(email);
   const domain = email.split("@")[1] ?? "";
+  if (!valid_format || !domain) {
+    return {
+      email,
+      valid_format: false,
+      domain: domain || null,
+      likely_disposable: false,
+      has_mx: false,
+      null_mx: false,
+      mx: [] as { priority: number; host: string }[],
+      mx_source: null as string | null,
+      mx_ms: 0,
+    };
+  }
+
+  const likely_disposable = DISPOSABLE_DOMAINS.has(domain);
+  let mxResult: Awaited<ReturnType<typeof resolveMx>>;
+  try {
+    mxResult = await resolveMx(domain);
+  } catch (e) {
+    throw new Error(`mx_lookup_failed: ${String(e).slice(0, 120)}`);
+  }
+
   return {
     email,
-    valid_format: valid,
+    valid_format: true,
     domain,
-    likely_disposable: disposableDomains.includes(domain),
-    mx_check: "mock_ok",
+    likely_disposable,
+    has_mx: mxResult.has_mx,
+    null_mx: mxResult.null_mx,
+    mx: mxResult.mx,
+    mx_source: mxResult.source,
+    mx_ms: mxResult.ms,
   };
 };
 
 export const ipLookupHandler: VendingHandler = async (_req, query) => {
   const ip = String(query.ip ?? "").trim();
   if (!ip) throw new Error("missing ip");
+  // Basic shape check (v4 or v6-ish) — avoid arbitrary hostnames hitting geo API
+  if (!/^[\d.:a-fA-F]+$/.test(ip) || ip.length > 45) throw new Error("invalid_ip");
   const res = await fetch(`https://ipapi.co/${encodeURIComponent(ip)}/json/`, {
     signal: AbortSignal.timeout(6000),
+    headers: { "User-Agent": "x402-vending-machine/0.1" },
   });
   if (!res.ok) throw new Error(`upstream ${res.status}`);
   const data = (await res.json()) as Record<string, unknown>;
+  if (data.error) throw new Error(`geo_error: ${String(data.reason ?? data.error)}`);
   return {
     ip,
-    country: data.country_name,
-    country_code: data.country_code,
-    city: data.city,
-    org: data.org,
-    asn: data.asn,
+    country: data.country_name ?? null,
+    country_code: data.country_code ?? null,
+    city: data.city ?? null,
+    org: data.org ?? null,
+    asn: data.asn ?? null,
+    source: "ipapi.co",
   };
 };
 
@@ -54,7 +109,6 @@ export const weatherHandler: VendingHandler = async (_req, query) => {
     results?: { latitude: number; longitude: number; name: string }[];
   };
   const hit = geoJson.results?.[0];
-  // Throw so withX402 does NOT settle (status 400 path)
   if (!hit) throw new Error("city_not_found");
   const wx = await fetch(
     `https://api.open-meteo.com/v1/forecast?latitude=${hit.latitude}&longitude=${hit.longitude}&current=temperature_2m,wind_speed_10m`,
@@ -62,32 +116,79 @@ export const weatherHandler: VendingHandler = async (_req, query) => {
   );
   if (!wx.ok) throw new Error(`weather upstream ${wx.status}`);
   const wxJson = (await wx.json()) as { current?: Record<string, number> };
+  if (!wxJson.current || typeof wxJson.current !== "object") {
+    throw new Error("weather_empty");
+  }
   return {
     city: hit.name,
     latitude: hit.latitude,
     longitude: hit.longitude,
-    current: wxJson.current ?? {},
+    current: wxJson.current,
+    source: "open-meteo.com",
   };
 };
 
 export const cryptoPricesHandler: VendingHandler = async (_req, query) => {
   const ids = String(query.ids ?? "bitcoin,ethereum").trim();
   if (!ids) throw new Error("missing ids");
-  const url = `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(ids)}&vs_currencies=usd`;
-  const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+  const idList = ids
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+    .slice(0, 25);
+  if (idList.length === 0) throw new Error("missing ids");
+  const url = `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(idList.join(","))}&vs_currencies=usd`;
+  const res = await fetch(url, {
+    signal: AbortSignal.timeout(8000),
+    headers: { Accept: "application/json" },
+  });
   if (!res.ok) throw new Error(`coingecko ${res.status}`);
-  return { ids: ids.split(",").map((s) => s.trim()).filter(Boolean), prices: await res.json() };
+  const prices = (await res.json()) as Record<string, unknown>;
+  if (!prices || typeof prices !== "object" || Object.keys(prices).length === 0) {
+    throw new Error("coingecko_empty");
+  }
+  return { ids: idList, prices, source: "api.coingecko.com", vs: "usd" };
 };
 
+/**
+ * QR: returns a live third-party PNG URL (api.qrserver.com), not a fabricated image.
+ * We HEAD-check the generator accepts the request shape; bytes are served by that CDN.
+ */
 export const qrGeneratorHandler: VendingHandler = async (_req, query) => {
   const data = String(query.data ?? "").trim();
   if (!data || data.length > 2048) throw new Error("invalid data");
   const size = Math.min(512, Math.max(128, Number(query.size ?? 256) || 256));
-  const url = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}`;
+  const png_url = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}`;
+  // Prove upstream is reachable (real image), fail closed if generator is down
+  let probe = await fetch(png_url, {
+    method: "HEAD",
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!probe.ok || !(probe.headers.get("content-type") ?? "").includes("image")) {
+    probe = await fetch(png_url, {
+      method: "GET",
+      signal: AbortSignal.timeout(8000),
+      headers: { Range: "bytes=0-64" },
+    });
+  }
+  if (!probe.ok) throw new Error(`qr_upstream_${probe.status}`);
+  const ct = probe.headers.get("content-type") ?? "";
+  if (!ct.includes("image")) throw new Error("qr_upstream_not_image");
+  // Consume small body if GET was used
+  if (probe.body) {
+    try {
+      await probe.arrayBuffer();
+    } catch {
+      /* ignore */
+    }
+  }
+
   return {
     data_preview: data.slice(0, 80),
-    png_url: url,
+    png_url,
     size,
+    content_type: ct,
+    source: "api.qrserver.com",
   };
 };
 
@@ -115,7 +216,6 @@ export const bundleInfraHandler: VendingHandler = async (_req, query) => {
   const { host, url } = hostFromBundleQuery(query);
   const started = Date.now();
 
-  // Parallel DNS + TLS; HEAD after we have a URL (can run parallel too)
   const [dnsSettled, headSettled, tlsSettled] = await Promise.allSettled([
     resolveDns(host),
     httpHead(url),
@@ -131,7 +231,6 @@ export const bundleInfraHandler: VendingHandler = async (_req, query) => {
   const head = pick(headSettled);
   const tls = pick(tlsSettled);
 
-  // At least one probe must succeed or we refuse to settle (400)
   if (!dns.ok && !head.ok && !tls.ok) {
     throw new Error(
       `bundle_all_failed: dns=${dns.ok ? "ok" : dns.error}; head=${head.ok ? "ok" : head.error}; tls=${tls.ok ? "ok" : tls.error}`,
@@ -163,4 +262,21 @@ export const whoisLiteHandler: VendingHandler = async (_req, query) => {
   if (!domain) throw new Error("missing domain");
   const whois = await whoisLite(domain);
   return { ...whois };
+};
+
+/** Fiat FX — live ECB/open.er-api rates (no mock). */
+export const fxRateHandler: VendingHandler = async (_req, query) => {
+  const base = String(query.base ?? query.from ?? "USD").trim();
+  const symbols = String(query.symbols ?? query.to ?? "EUR,GBP,JPY").trim();
+  const fx = await fxRates(base, symbols);
+  return { ...fx };
+};
+
+/** Redirect chain trace — real hop statuses, SSRF-safe. */
+export const redirectTraceHandler: VendingHandler = async (_req, query) => {
+  const url = String(query.url ?? "").trim();
+  if (!url) throw new Error("missing url");
+  const max = Math.min(10, Math.max(1, Number(query.max_hops ?? 10) || 10));
+  const trace = await redirectTrace(url, max);
+  return { ...trace };
 };

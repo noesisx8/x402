@@ -10,6 +10,7 @@
     "lint": "next lint",
     "check": "tsc --noEmit",
     "test:unit": "node scripts/phase0-unit.mjs",
+    "test:live": "npx --yes tsx scripts/verify-live-data.mjs",
     "smoke:unpaid": "node scripts/smoke-unpaid.mjs",
     "smoke:paid": "node scripts/paid-fetch.mjs"
   },

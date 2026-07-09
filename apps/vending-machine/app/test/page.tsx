@@ -9,6 +9,9 @@ import {
 } from "@/lib/x402/paid-fetch-client";
 
 const SERVICES = [
+  { slug: "email-validate", qs: "email=test@gmail.com" },
+  { slug: "fx-rate", qs: "base=USD&symbols=EUR,GBP,JPY" },
+  { slug: "redirect-trace", qs: "url=https://httpbin.org/redirect/2" },
   { slug: "tls-cert", qs: "host=example.com" },
   { slug: "whois-lite", qs: "domain=example.com" },
   { slug: "dns-resolve", qs: "host=example.com" },
@@ -17,7 +20,7 @@ const SERVICES = [
   { slug: "qr-code", qs: "data=https://x402.org" },
   { slug: "crypto-prices", qs: "ids=bitcoin,ethereum" },
   { slug: "weather", qs: "city=Berlin" },
-  { slug: "email-validate", qs: "email=test@example.com" },
+  { slug: "ip-lookup", qs: "ip=8.8.8.8" },
 ];
 
 export default function TestPage() {

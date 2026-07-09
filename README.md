@@ -40,16 +40,18 @@ Facilitator — Coinbase CDP hosted (default) or self-hosted proxy (apps/facilit
 
 Utility endpoint bundle: DNS lookup + HTTP HEAD probe + optional WHOIS stub — price **$0.002–$0.01** per call, batch-friendly agents, list on MCP + `.well-known/x402`.
 
-## Phase 0 checks
+## Production checks (portalv2)
 
 ```bash
 cd apps/vending-machine
 npm run test:unit          # price caps + settle contract
-npm run smoke:unpaid       # live 402 + discovery (no wallet)
-# X402_PRIVATE_KEY=0x… npm run smoke:paid   # mainnet paid E2E (funded key only)
+npm run test:live          # handlers hit real upstreams (no mock)
+npm run smoke:unpaid       # production 402 + discovery (no wallet)
+# Browser: https://vending-machine-seven.vercel.app/test
 ```
 
-Production anchor: https://vending-machine-seven.vercel.app · Base mainnet · see `docs/ROADMAP_ULTIMATE_VENDING_HUB.md`.
+Official catalog: `docs/OFFICIAL_CATALOG.md`  
+Production: https://vending-machine-seven.vercel.app · Base mainnet
 
 ## References
 

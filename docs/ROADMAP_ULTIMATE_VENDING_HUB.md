@@ -10,7 +10,7 @@
 | Network | `base` → `eip155:8453` |
 | Pay-to | `0xc648116b5deBE4AF7D78838AA468d07e0A9Ab697` |
 | Facilitator | CDP `https://api.cdp.coinbase.com/platform/v2/x402` + JWT auth (wired) |
-| Catalog | 10 slugs in `lib/services/registry.ts` (Phase 2 hub complete) |
+| Catalog | 12 slugs — see `docs/OFFICIAL_CATALOG.md` (live data only) |
 
 ---
 

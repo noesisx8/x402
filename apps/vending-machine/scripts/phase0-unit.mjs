@@ -47,6 +47,8 @@ for (const p of [
   "$0.01", // bundle-infra
   "$0.004", // tls-cert
   "$0.008", // whois-lite
+  "$0.003", // fx-rate
+  "$0.003", // redirect-trace
 ]) {
   assertPriceWithinCap(p);
 }

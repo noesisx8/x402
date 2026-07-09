@@ -9,19 +9,25 @@ export default function HomePage() {
       <p className="text-sm uppercase tracking-widest text-emerald-400">x402 V2 vending machine</p>
       <h1 className="mt-2 text-3xl font-semibold">Pay-per-call utilities for agents</h1>
       <p className="mt-3 text-zinc-400">
-        Network {network} · exact USDC · micropayments are final (no refunds). Add services in{" "}
-        <code className="text-emerald-300">lib/services/registry.ts</code>.
+        Network {network} · exact USDC · micropayments are final (no refunds).{" "}
+        {VENDING_SERVICES.filter((s) => s.enabled).length} live utilities — no mock payloads.
       </p>
 
       <section className="mt-10 grid gap-4">
-        {VENDING_SERVICES.map((s) => (
+        {VENDING_SERVICES.filter((s) => s.enabled).map((s) => (
           <article key={s.slug} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h2 className="text-lg font-medium">{s.name}</h2>
               <span className="text-emerald-400">{s.price} USDC</span>
             </div>
             <p className="mt-1 text-sm text-zinc-400">{s.description}</p>
-            <p className="mt-2 font-mono text-xs text-zinc-500">GET /api/v/{s.slug}</p>
+            <p className="mt-2 font-mono text-xs text-zinc-500">
+              GET /api/v/{s.slug}
+              {s.queryParams
+                .filter((p) => p.required)
+                .map((p) => `?${p.name}=…`)
+                .join("")}
+            </p>
           </article>
         ))}
       </section>

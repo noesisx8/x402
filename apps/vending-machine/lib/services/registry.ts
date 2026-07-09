@@ -4,15 +4,18 @@
  * Paid route auto-exposed at GET /api/v/{slug}
  *
  * Prices are validated against GLOBAL_MAX_PRICE_USD at wrap time (Phase 0.5).
+ * All handlers must return live upstream data — no mock/fake payloads.
  */
 import {
   bundleInfraHandler,
   cryptoPricesHandler,
   dnsResolveHandler,
   emailValidateHandler,
+  fxRateHandler,
   httpHeadHandler,
   ipLookupHandler,
   qrGeneratorHandler,
+  redirectTraceHandler,
   tlsCertHandler,
   weatherHandler,
   whoisLiteHandler,
@@ -24,7 +27,7 @@ export const VENDING_SERVICES: VendingService[] = [
   {
     slug: "email-validate",
     name: "Email validation",
-    description: "Format + disposable-domain heuristics for outreach agents",
+    description: "Format + disposable heuristic + live DoH MX records",
     price: "$0.004",
     scheme: "exact",
     enabled: true,
@@ -34,7 +37,7 @@ export const VENDING_SERVICES: VendingService[] = [
   {
     slug: "ip-lookup",
     name: "IP geolocation",
-    description: "Country, city, ASN via public geo API",
+    description: "Country, city, ASN via ipapi.co (live)",
     price: "$0.003",
     scheme: "exact",
     enabled: true,
@@ -44,7 +47,7 @@ export const VENDING_SERVICES: VendingService[] = [
   {
     slug: "weather",
     name: "Weather snapshot",
-    description: "Current temperature and wind for a city (Open-Meteo)",
+    description: "Current temperature and wind (Open-Meteo, live)",
     price: "$0.003",
     scheme: "exact",
     enabled: true,
@@ -54,7 +57,7 @@ export const VENDING_SERVICES: VendingService[] = [
   {
     slug: "crypto-prices",
     name: "Crypto spot prices",
-    description: "USD prices from CoinGecko simple API",
+    description: "USD spot prices from CoinGecko simple API (live)",
     price: "$0.005",
     scheme: "exact",
     enabled: true,
@@ -64,7 +67,7 @@ export const VENDING_SERVICES: VendingService[] = [
   {
     slug: "qr-code",
     name: "QR code",
-    description: "PNG QR for arbitrary payload (agent onboarding, payments)",
+    description: "PNG QR URL via api.qrserver.com (upstream probed live)",
     price: "$0.002",
     scheme: "exact",
     enabled: true,
@@ -74,7 +77,6 @@ export const VENDING_SERVICES: VendingService[] = [
     ],
     handler: qrGeneratorHandler,
   },
-  // --- Phase 2 hub utilities ---
   {
     slug: "dns-resolve",
     name: "DNS resolve",
@@ -137,9 +139,34 @@ export const VENDING_SERVICES: VendingService[] = [
     ],
     handler: whoisLiteHandler,
   },
+  {
+    slug: "fx-rate",
+    name: "FX rates",
+    description: "Live fiat exchange rates (Frankfurter/ECB, open.er-api fallback)",
+    price: "$0.003",
+    scheme: "exact",
+    enabled: true,
+    queryParams: [
+      { name: "base", required: false, description: "ISO 4217 base, default USD" },
+      { name: "symbols", required: false, description: "Comma list e.g. EUR,GBP,JPY" },
+    ],
+    handler: fxRateHandler,
+  },
+  {
+    slug: "redirect-trace",
+    name: "Redirect trace",
+    description: "Follow public redirect chain; per-hop status (SSRF-safe)",
+    price: "$0.003",
+    scheme: "exact",
+    enabled: true,
+    queryParams: [
+      { name: "url", required: true, description: "Starting https:// URL" },
+      { name: "max_hops", required: false, description: "1–10, default 10" },
+    ],
+    handler: redirectTraceHandler,
+  },
 ];
 
-// Fail fast at module load if any catalog price is invalid or over the global cap
 for (const s of VENDING_SERVICES) {
   assertPriceWithinCap(s.price);
 }

@@ -4,41 +4,32 @@ Synthesized from Agent.market / PayAPI Market / agentsvc.io / awesome-x402 / Coi
 
 ## Tier 1 — highest volume, proven demand ($0.001–$0.01 USDC)
 
-| Category | Examples | Why agents buy |
-|----------|----------|----------------|
-| Email validation | syntax + MX + disposable detection | Lead gen, outreach bots |
-| IP geolocation | country, ASN, proxy/VPN hints | Fraud, routing, compliance |
-| DNS / SSL | resolve, cert expiry | Infra monitors, security scans |
-| Crypto prices | spot, 24h change, multi-asset | Trading / research agents |
-| Exchange / fiat rates | FX pairs | Cross-border reasoning |
-| QR code generation | PNG/SVG payload | Payments, onboarding flows |
-| HTTP HEAD / uptime | status, latency | Site health pipelines |
-| WHOIS / domain intel | registrar, expiry | Brand protection |
+| Category | Examples | Why agents buy | Our catalog |
+|----------|----------|----------------|-------------|
+| Email validation | syntax + MX + disposable | Lead gen, outreach bots | `email-validate` (live MX) |
+| IP geolocation | country, ASN | Fraud, routing | `ip-lookup` |
+| DNS / SSL | resolve, cert expiry | Infra monitors | `dns-resolve`, `tls-cert` |
+| Crypto prices | spot multi-asset | Trading / research | `crypto-prices` |
+| Exchange / fiat rates | FX pairs | Cross-border reasoning | `fx-rate` |
+| QR code generation | PNG payload | Payments, onboarding | `qr-code` |
+| HTTP HEAD / uptime | status, latency | Site health | `http-head`, `redirect-trace` |
+| WHOIS / domain intel | registrar, expiry | Brand protection | `whois-lite` |
+| Bundles | multi-step one 402 | Agent efficiency | `bundle-infra` |
 
 ## Tier 2 — fast growth, higher margin ($0.01–$0.10)
 
-| Category | Examples |
-|----------|----------|
-| Web search (x402-native) | Exa /search ~$0.007 per call |
-| Page extract / screenshot | pay-per-crawl stacks |
-| OCR / PDF extract | document agents |
-| Market data bundles | funding, OHLCV, DeFi yields (AgentData-style) |
-| SEO / competitive intel packs | multi-step bundles |
-| Translation / summarize | per-request NLP |
+| Category | Examples | Status for us |
+|----------|----------|----------------|
+| Web search (x402-native) | Exa /search | Deferred (upstream cost) |
+| Page extract / screenshot | pay-per-crawl | Deferred |
+| OCR / PDF extract | document agents | Deferred |
+| Market data bundles | OHLCV, funding | Deferred |
+| SEO packs | multi-step | Deferred |
 
-## Tier 3 — differentiated / lower competition
+## Official production list
 
-| Category | Examples |
-|----------|----------|
-| Multi-step workflows | pay-per-step orchestration |
-| Onchain data (x402) | Allium-style per-query |
-| Compliance / sanctions screen | B2B agents |
-| Inference gateway routing | cheapest model + premium tier |
-
-## Vending machine defaults (this repo)
-
-Ship Tier-1 utilities first: weather (demo), IP, QR, crypto prices, email validate — prices aligned with agentsvc/PayAPI ($0.002–$0.008).
+See **`docs/OFFICIAL_CATALOG.md`** — verified live-data catalog for marketplace / awesome-x402 listing.
 
 ## Discovery
 
-Agents expect: `/.well-known/x402`, `/.well-known/agent-services.json`, OpenAPI, MCP manifest. List on awesome-x402 + Agent.market when live.
+Agents expect: `/.well-known/x402`, `/.well-known/agent-services.json`, OpenAPI, MCP. List on awesome-x402 + Agent.market when live.
