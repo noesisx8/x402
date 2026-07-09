@@ -12,12 +12,14 @@
     "test:unit": "node scripts/phase0-unit.mjs",
     "test:live": "npx --yes tsx scripts/verify-live-data.mjs",
     "smoke:unpaid": "node scripts/smoke-unpaid.mjs",
-    "smoke:paid": "node scripts/paid-fetch.mjs"
+    "smoke:paid": "node scripts/paid-fetch.mjs",
+    "smoke:bazaar": "node scripts/smoke-bazaar.mjs"
   },
   "dependencies": {
     "@coinbase/cdp-sdk": "^1.51.2",
     "@x402/core": "^2.17.0",
     "@x402/evm": "^2.17.0",
+    "@x402/extensions": "^2.17.0",
     "@x402/fetch": "^2.17.0",
     "@x402/next": "^2.17.0",
     "@x402/paywall": "^2.17.0",

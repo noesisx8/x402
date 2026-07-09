@@ -1,5 +1,6 @@
 import { HTTPFacilitatorClient, x402ResourceServer } from "@x402/core/server";
 import { ExactEvmScheme } from "@x402/evm/exact/server";
+import { bazaarResourceServerExtension } from "@x402/extensions/bazaar";
 import { CAIP_NETWORK, serverEnv } from "@/lib/env";
 import {
   createCdpFacilitatorAuthHeaders,
@@ -10,7 +11,7 @@ let resourceServer: x402ResourceServer | null = null;
 let initPromise: Promise<x402ResourceServer> | null = null;
 
 /**
- * Shared x402 resource server (facilitator verify/settle).
+ * Shared x402 resource server (facilitator verify/settle + CDP Bazaar extension).
  * Initialized once per serverless isolate; safe to reuse across routes.
  */
 export function getResourceServer(): Promise<x402ResourceServer> {
@@ -37,7 +38,11 @@ export function getResourceServer(): Promise<x402ResourceServer> {
           : {}),
       });
 
-      const server = new x402ResourceServer(facilitator).register(network, new ExactEvmScheme());
+      const server = new x402ResourceServer(facilitator)
+        .register(network, new ExactEvmScheme())
+        // CDP Bazaar: enrich Payment-Required with discovery metadata for cataloging
+        .registerExtension(bazaarResourceServerExtension);
+
       await server.initialize();
       resourceServer = server;
       return server;

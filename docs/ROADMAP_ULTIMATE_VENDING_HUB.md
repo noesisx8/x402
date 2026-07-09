@@ -79,9 +79,9 @@
 | # | Surface | Action |
 |---|---------|--------|
 | 3.1 | **Local discovery** (done) | `/.well-known/agent-services.json`, `/.well-known/x402`, `/api/openapi.json` |
-| 3.2 | **CDP Bazaar** | Add `bazaarResourceServerExtension` + `declareDiscoveryExtension()` on resource server; register merchant pay-to | Listed in CDP discovery / MCP |
-| 3.3 | **awesome-x402** | PR with one-line description + production URL | Community index |
-| 3.4 | **Agent.market / PayAPI / agentsvc** | Submit listing: 5–10 utilities, Base mainnet, exact USDC | Distribution |
+| 3.2 | **CDP Bazaar** | `bazaarResourceServerExtension` + `declareDiscoveryExtension()` per route | **Coded** — index after post-deploy paid settle; see `docs/DISTRIBUTION.md` |
+| 3.3 | **awesome-x402** | PR with one-line description + production URL | **PR #778** open |
+| 3.4 | **Agentic.Market / Agent.market** | Appear via Bazaar settle traffic + discovery URLs | **Playbook in DISTRIBUTION.md** |
 | 3.5 | **x402scan / Messari-style indexes** | Monitor; submit when forms exist | SEO for agents |
 | 3.6 | **MCP server** | Expose top slugs as tools pointing at same URLs | Claude / Cursor agents |
 | 3.7 | **Branding** | Name, logo, `description` on every route; consistent `PUBLIC_BASE_URL` in discovery | Trust |

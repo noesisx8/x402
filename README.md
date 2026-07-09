@@ -51,6 +51,7 @@ npm run smoke:unpaid       # production 402 + discovery (no wallet)
 ```
 
 Official catalog: `docs/OFFICIAL_CATALOG.md`  
+Distribution (CDP Bazaar + Agentic.Market): `docs/DISTRIBUTION.md`  
 Production: https://vending-machine-seven.vercel.app · Base mainnet
 
 ## References
