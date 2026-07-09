@@ -2,6 +2,8 @@
  * VENDING MACHINE REGISTRY
  * Add a service: append one object below — path, price, handler.
  * Paid route auto-exposed at GET /api/v/{slug}
+ *
+ * Prices are validated against GLOBAL_MAX_PRICE_USD at wrap time (Phase 0.5).
  */
 import {
   cryptoPricesHandler,
@@ -11,6 +13,7 @@ import {
   weatherHandler,
 } from "@/lib/services/handlers";
 import type { VendingService } from "@/lib/services/types";
+import { assertPriceWithinCap } from "@/lib/pricing";
 
 export const VENDING_SERVICES: VendingService[] = [
   {
@@ -68,6 +71,11 @@ export const VENDING_SERVICES: VendingService[] = [
   },
 ];
 
+// Fail fast at module load if any catalog price is invalid or over the global cap
+for (const s of VENDING_SERVICES) {
+  assertPriceWithinCap(s.price);
+}
+
 export const SERVICES_BY_SLUG = Object.fromEntries(
-  VENDING_SERVICES.filter((s) => s.enabled).map((s) => [s.slug, s])
+  VENDING_SERVICES.filter((s) => s.enabled).map((s) => [s.slug, s]),
 ) as Record<string, VendingService>;

@@ -9,7 +9,7 @@ export default function HomePage() {
       <p className="text-sm uppercase tracking-widest text-emerald-400">x402 V2 vending machine</p>
       <h1 className="mt-2 text-3xl font-semibold">Pay-per-call utilities for agents</h1>
       <p className="mt-3 text-zinc-400">
-        Network {network}. Facilitator {serverEnv.X402_FACILITATOR_URL}. Add services in{" "}
+        Network {network} · exact USDC · micropayments are final (no refunds). Add services in{" "}
         <code className="text-emerald-300">lib/services/registry.ts</code>.
       </p>
 

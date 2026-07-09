@@ -38,6 +38,17 @@ Local machine: edit code, `npm test` / dry-run builds OK. **No `npm start` / `do
 
 Utility endpoint bundle: DNS lookup + HTTP HEAD probe + optional WHOIS stub — price **$0.002–$0.01** per call, batch-friendly agents, list on MCP + `.well-known/x402`.
 
+## Phase 0 checks
+
+```bash
+cd apps/vending-machine
+npm run test:unit          # price caps + settle contract
+npm run smoke:unpaid       # live 402 + discovery (no wallet)
+# X402_PRIVATE_KEY=0x… npm run smoke:paid   # mainnet paid E2E (funded key only)
+```
+
+Production anchor: https://vending-machine-seven.vercel.app · Base mainnet · see `docs/ROADMAP_ULTIMATE_VENDING_HUB.md`.
+
 ## References
 
 - Spec / SDK: [coinbase/x402](https://github.com/coinbase/x402), [x402.org](https://x402.org), [docs.cdp.coinbase.com/x402](https://docs.cdp.coinbase.com/x402/quickstart-for-sellers)

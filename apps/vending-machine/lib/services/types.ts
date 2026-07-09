@@ -1,6 +1,7 @@
 import type { RouteConfig } from "@x402/core/server";
 import type { Network } from "@x402/core/types";
 import { CAIP_NETWORK, serverEnv } from "@/lib/env";
+import { assertPriceWithinCap } from "@/lib/pricing";
 
 export type VendingHandler = (
   request: Request,
@@ -20,6 +21,8 @@ export type VendingService = {
 };
 
 export function serviceRouteConfig(svc: VendingService): RouteConfig {
+  // Phase 0.5: fail closed if a route is mis-priced above the global cap
+  assertPriceWithinCap(svc.price);
   const network: Network = CAIP_NETWORK[serverEnv.X402_NETWORK_MODE];
   return {
     accepts: {

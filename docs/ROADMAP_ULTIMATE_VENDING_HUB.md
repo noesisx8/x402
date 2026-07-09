@@ -18,16 +18,18 @@
 
 **Goal:** Every unpaid call → **402**; every valid paid call → **settle → 200**; no silent failures.
 
-| # | Task | Owner | Done when |
-|---|------|--------|-----------|
-| 0.1 | Confirm Vercel **Production** env: `X402_NETWORK_MODE=base`, pay-to, CDP keys, `PUBLIC_BASE_URL` | You | Redeploy after any env change |
-| 0.2 | **Paid E2E smoke** on mainnet: wallet with **Base USDC** → paid GET on `/api/v/qr-code` → **200** + JSON | You + agent | Tx visible on Base; pay-to balance increases |
-| 0.3 | Add **`/test` paid flow** (MetaMask / Coinbase Wallet + `@x402/core` client) so humans can verify without writing a script | Dev | Button: Pay & fetch → 200 |
-| 0.4 | **Idempotency:** document retry behavior; ensure duplicate payment headers don’t double-deliver (facilitator + route binding) | Dev | Note in `docs/SECURITY.md` + one integration test on deploy host |
-| 0.5 | **Caps:** max payment amount per route in registry; rate limit unpaid 402 spam (Vercel WAF or middleware) | Dev | Abuse can’t drain facilitator quota |
-| 0.6 | **Observability:** log `402` / `verify` / `settle` / `200` with slug, ms, payer hint (no secrets) | Dev | `/api/admin/stats` or external sink |
+| # | Task | Owner | Status | Done when |
+|---|------|--------|--------|-----------|
+| 0.1 | Confirm Vercel **Production** env: `X402_NETWORK_MODE=base`, pay-to, CDP keys, `PUBLIC_BASE_URL` | Ops | **Done** (live: `base`, pay-to `0xc648…`, CDP JWT) | Redeploy after any env change |
+| 0.2 | **Paid E2E smoke** on mainnet: wallet with **Base USDC** → paid GET on `/api/v/qr-code` → **200** + JSON | You | **Script ready** (`scripts/paid-fetch.mjs`); run once with funded key | Tx visible on Base; pay-to balance increases |
+| 0.3 | **`/test` paid flow** (wallet + `@x402/fetch`) | Dev | **Done** | Button: Pay & GET → 200 |
+| 0.4 | **Idempotency:** document retry behavior; no settle on handler ≥400 | Dev | **Done** (`docs/SECURITY.md` + `scripts/phase0-unit.mjs`) | Note + unit contract |
+| 0.5 | **Caps** + unpaid **rate limit** | Dev | **Done** (`lib/pricing.ts`, `lib/rate-limit.ts`) | Abuse can’t drain facilitator quota |
+| 0.6 | **Observability:** lifecycle logs + `/api/admin/stats` | Dev | **Done** (`lib/analytics.ts`; token-gated full log) | `scope:x402` JSON logs |
 
-**Blockers if E2E fails:** wrong network in wallet, insufficient USDC, CDP key scopes, clock skew on JWT (rare).
+**Unpaid automation (no wallet):** `node apps/vending-machine/scripts/smoke-unpaid.mjs`
+
+**Blockers if paid E2E fails:** wrong network in wallet, insufficient USDC, CDP key scopes, clock skew on JWT (rare).
 
 ---
 
