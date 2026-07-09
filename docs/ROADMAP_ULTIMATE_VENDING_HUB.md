@@ -58,8 +58,8 @@
 | `dns-resolve` | $0.003 | DoH (Cloudflare) + system fallback | Cache TTL 60s | **Live** (paid E2E OK) |
 | `http-head` | $0.002 | `fetch` HEAD (GET fallback) | Timeout 7s, SSRF guards | **Live** |
 | `bundle-infra` | $0.01 | DNS + HEAD + TLS one 402 | **Agent bundle** | **Live** |
-| `tls-cert` | $0.004 | TLS handshake peek | Solo cert route | **Live** |
-| `whois-lite` | $0.008 | RDAP (`rdap.org` bootstrap) | Lite fields only | **Live** |
+| `tls-cert` | $0.004 | TLS handshake peek | Solo cert route | **Live** (paid E2E OK) |
+| `whois-lite` | $0.008 | RDAP (`rdap.org` bootstrap) | Lite fields only | **Live** (paid E2E OK) |
 
 **Registry pattern (already in repo):** one object in `registry.ts` → auto route + discovery + OpenAPI.
 
