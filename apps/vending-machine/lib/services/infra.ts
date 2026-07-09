@@ -356,3 +356,132 @@ export function hostFromBundleQuery(query: Record<string, string | string[] | un
   }
   throw new Error("missing host or url");
 }
+
+// --- WHOIS / RDAP (lite) ---
+
+export type WhoisLiteResult = {
+  domain: string;
+  ldh_name: string | null;
+  handle: string | null;
+  status: string[];
+  registered: string | null;
+  expires: string | null;
+  updated: string | null;
+  registrar: string | null;
+  nameservers: string[];
+  rdap_conformance: string[] | null;
+  source: "rdap";
+  rdap_url: string;
+  ms: number;
+};
+
+type RdapEntity = {
+  roles?: string[];
+  vcardArray?: unknown[];
+  publicIds?: { type?: string; identifier?: string }[];
+  entities?: RdapEntity[];
+};
+
+function vcardFn(entity: RdapEntity | undefined): string | null {
+  if (!entity?.vcardArray || !Array.isArray(entity.vcardArray)) return null;
+  const cards = entity.vcardArray[1];
+  if (!Array.isArray(cards)) return null;
+  for (const row of cards) {
+    if (Array.isArray(row) && row[0] === "fn" && row[3]) return String(row[3]);
+  }
+  return null;
+}
+
+function findEntityByRole(entities: RdapEntity[] | undefined, role: string): RdapEntity | undefined {
+  if (!entities) return undefined;
+  for (const e of entities) {
+    if (e.roles?.includes(role)) return e;
+    const nested = findEntityByRole(e.entities, role);
+    if (nested) return nested;
+  }
+  return undefined;
+}
+
+function eventDate(
+  events: { eventAction?: string; eventDate?: string }[] | undefined,
+  action: string,
+): string | null {
+  const hit = events?.find((e) => e.eventAction === action);
+  if (!hit?.eventDate) return null;
+  try {
+    return new Date(hit.eventDate).toISOString();
+  } catch {
+    return hit.eventDate;
+  }
+}
+
+/**
+ * RDAP domain lookup (lite fields only — no full vCard dump / PII fishing).
+ * Uses rdap.org bootstrap redirect.
+ */
+export async function whoisLite(domainRaw: string): Promise<WhoisLiteResult> {
+  // Accept hostnames; strip www. for registry object
+  let domain = normalizeHost(domainRaw);
+  if (domain.startsWith("www.")) domain = domain.slice(4);
+
+  // Basic TLD requirement (at least one dot)
+  if (!domain.includes(".")) throw new Error("invalid_domain");
+
+  const started = Date.now();
+  const rdapUrl = `https://rdap.org/domain/${encodeURIComponent(domain)}`;
+
+  let res: Response;
+  try {
+    res = await fetch(rdapUrl, {
+      redirect: "follow",
+      signal: AbortSignal.timeout(8000),
+      headers: {
+        Accept: "application/rdap+json, application/json",
+        "User-Agent": "x402-vending-machine/0.1 (+whois-lite)",
+      },
+    });
+  } catch (e) {
+    throw new Error(`rdap_failed: ${String(e).slice(0, 120)}`);
+  }
+
+  if (res.status === 404) throw new Error("domain_not_found");
+  if (res.status === 429) throw new Error("rdap_rate_limited");
+  if (!res.ok) throw new Error(`rdap_upstream_${res.status}`);
+
+  const j = (await res.json()) as {
+    ldhName?: string;
+    handle?: string;
+    status?: string[];
+    events?: { eventAction?: string; eventDate?: string }[];
+    entities?: RdapEntity[];
+    nameservers?: { ldhName?: string }[];
+    rdapConformance?: string[];
+  };
+
+  const registrarEnt = findEntityByRole(j.entities, "registrar");
+  const registrar =
+    vcardFn(registrarEnt) ??
+    registrarEnt?.publicIds?.find((p) => p.type === "IANA Registrar ID")?.identifier ??
+    null;
+
+  const nameservers = (j.nameservers ?? [])
+    .map((n) => n.ldhName)
+    .filter((n): n is string => Boolean(n))
+    .map((n) => n.toLowerCase().replace(/\.$/, ""));
+
+  return {
+    domain,
+    ldh_name: j.ldhName ?? domain,
+    handle: j.handle ?? null,
+    status: Array.isArray(j.status) ? j.status.map(String) : [],
+    registered: eventDate(j.events, "registration"),
+    expires: eventDate(j.events, "expiration"),
+    updated: eventDate(j.events, "last changed") ?? eventDate(j.events, "last update of RDAP database"),
+    registrar,
+    nameservers,
+    rdap_conformance: j.rdapConformance ?? null,
+    source: "rdap",
+    rdap_url: res.url || rdapUrl,
+    ms: Date.now() - started,
+  };
+}

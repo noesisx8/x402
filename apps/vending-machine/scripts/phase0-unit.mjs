@@ -45,6 +45,8 @@ for (const p of [
   "$0.003", // dns-resolve
   "$0.002", // http-head
   "$0.01", // bundle-infra
+  "$0.004", // tls-cert
+  "$0.008", // whois-lite
 ]) {
   assertPriceWithinCap(p);
 }

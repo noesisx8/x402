@@ -101,6 +101,8 @@ async function main() {
     "/api/v/dns-resolve?host=example.com",
     "/api/v/http-head?url=https://example.com",
     "/api/v/bundle-infra?host=example.com",
+    "/api/v/tls-cert?host=example.com",
+    "/api/v/whois-lite?domain=example.com",
   ]) {
     const res = await fetch(`${BASE}${path}`);
     const pr = res.headers.get("payment-required") ?? res.headers.get("Payment-Required");

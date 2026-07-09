@@ -4,6 +4,7 @@ import {
   httpHead,
   resolveDns,
   tlsCertPeek,
+  whoisLite,
 } from "@/lib/services/infra";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -145,4 +146,21 @@ export const bundleInfraHandler: VendingHandler = async (_req, query) => {
     http_head: head,
     tls,
   };
+};
+
+/** Phase 2 — standalone TLS certificate peek. */
+export const tlsCertHandler: VendingHandler = async (_req, query) => {
+  const host = String(query.host ?? query.domain ?? "").trim();
+  if (!host) throw new Error("missing host");
+  const port = query.port !== undefined ? String(query.port) : undefined;
+  const tls = await tlsCertPeek(host, port);
+  return { ...tls };
+};
+
+/** Phase 2 — RDAP domain intel (lite, no full WHOIS dump). */
+export const whoisLiteHandler: VendingHandler = async (_req, query) => {
+  const domain = String(query.domain ?? query.host ?? "").trim();
+  if (!domain) throw new Error("missing domain");
+  const whois = await whoisLite(domain);
+  return { ...whois };
 };

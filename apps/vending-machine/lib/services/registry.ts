@@ -13,7 +13,9 @@ import {
   httpHeadHandler,
   ipLookupHandler,
   qrGeneratorHandler,
+  tlsCertHandler,
   weatherHandler,
+  whoisLiteHandler,
 } from "@/lib/services/handlers";
 import type { VendingService } from "@/lib/services/types";
 import { assertPriceWithinCap } from "@/lib/pricing";
@@ -109,6 +111,31 @@ export const VENDING_SERVICES: VendingService[] = [
       { name: "url", required: false, description: "Full URL (or use host)" },
     ],
     handler: bundleInfraHandler,
+  },
+  {
+    slug: "tls-cert",
+    name: "TLS certificate peek",
+    description: "Peer cert subject, issuer, expiry, and authorization status",
+    price: "$0.004",
+    scheme: "exact",
+    enabled: true,
+    queryParams: [
+      { name: "host", required: true, description: "Hostname e.g. example.com" },
+      { name: "port", required: false, description: "443 (default) or 8443" },
+    ],
+    handler: tlsCertHandler,
+  },
+  {
+    slug: "whois-lite",
+    name: "WHOIS / RDAP lite",
+    description: "Domain status, registrar, dates, nameservers via RDAP",
+    price: "$0.008",
+    scheme: "exact",
+    enabled: true,
+    queryParams: [
+      { name: "domain", required: true, description: "example.com (host= also accepted)" },
+    ],
+    handler: whoisLiteHandler,
   },
 ];
 

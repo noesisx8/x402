@@ -9,6 +9,8 @@ import {
 } from "@/lib/x402/paid-fetch-client";
 
 const SERVICES = [
+  { slug: "tls-cert", qs: "host=example.com" },
+  { slug: "whois-lite", qs: "domain=example.com" },
   { slug: "dns-resolve", qs: "host=example.com" },
   { slug: "http-head", qs: "url=https://example.com" },
   { slug: "bundle-infra", qs: "host=example.com" },
