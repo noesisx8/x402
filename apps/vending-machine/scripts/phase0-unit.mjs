@@ -35,8 +35,17 @@ assert.throws(() => assertPriceWithinCap("$1.00"), /price_exceeds_cap/);
 assert.throws(() => assertPriceWithinCap("$0"), /price_must_be_positive/);
 assert.throws(() => parsePriceUsd("free"), /invalid_price_format/);
 
-// Catalog prices must pass cap (mirrors registry)
-for (const p of ["$0.004", "$0.003", "$0.003", "$0.005", "$0.002"]) {
+// Catalog prices must pass cap (mirrors registry — Phase 0 + Phase 2 hub)
+for (const p of [
+  "$0.004",
+  "$0.003",
+  "$0.003",
+  "$0.005",
+  "$0.002",
+  "$0.003", // dns-resolve
+  "$0.002", // http-head
+  "$0.01", // bundle-infra
+]) {
   assertPriceWithinCap(p);
 }
 

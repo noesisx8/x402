@@ -10,7 +10,7 @@
 | Network | `base` → `eip155:8453` |
 | Pay-to | `0xc648116b5deBE4AF7D78838AA468d07e0A9Ab697` |
 | Facilitator | CDP `https://api.cdp.coinbase.com/platform/v2/x402` + JWT auth (wired) |
-| Catalog | 5 Tier-1 slugs in `lib/services/registry.ts` |
+| Catalog | 8 slugs in `lib/services/registry.ts` (5 original + Phase 2 hub) |
 
 ---
 
@@ -51,15 +51,20 @@
 
 **Goal:** Match what agents actually buy (see `docs/TOP_X402_SERVICES.md`).
 
-**Ship next (high ROI, low build):**
+**Shipped (Phase 2 hub — 2026-07-09):**
 
-| Slug | Price (USDC) | Upstream | Margin lever |
-|------|----------------|----------|----------------|
-| `dns-resolve` | $0.003 | DoH / public resolver | Cache TTL 60s |
-| `http-head` | $0.002 | `fetch` HEAD | Timeout cap |
-| `tls-cert` | $0.004 | TLS handshake peek | Bundle with DNS |
+| Slug | Price (USDC) | Upstream | Margin lever | Status |
+|------|----------------|----------|----------------|--------|
+| `dns-resolve` | $0.003 | DoH (Cloudflare) + system fallback | Cache TTL 60s | **Live** |
+| `http-head` | $0.002 | `fetch` HEAD (GET fallback) | Timeout 7s, SSRF guards | **Live** |
+| `bundle-infra` | $0.01 | DNS + HEAD + TLS one 402 | **Agent bundle** | **Live** (includes TLS peek) |
+
+**Still backlog:**
+
+| Slug | Price (USDC) | Upstream | Notes |
+|------|----------------|----------|--------|
+| `tls-cert` | $0.004 | TLS handshake peek | Covered inside `bundle-infra`; solo route optional |
 | `whois-lite` | $0.008 | RDAP | Rate limit heavy |
-| `bundle-infra` | $0.01 | DNS + HEAD + TLS one 402 | **Agent bundle** differentiator |
 
 **Registry pattern (already in repo):** one object in `registry.ts` → auto route + discovery + OpenAPI.
 

@@ -9,6 +9,9 @@ import {
 } from "@/lib/x402/paid-fetch-client";
 
 const SERVICES = [
+  { slug: "dns-resolve", qs: "host=example.com" },
+  { slug: "http-head", qs: "url=https://example.com" },
+  { slug: "bundle-infra", qs: "host=example.com" },
   { slug: "qr-code", qs: "data=https://x402.org" },
   { slug: "crypto-prices", qs: "ids=bitcoin,ethereum" },
   { slug: "weather", qs: "city=Berlin" },

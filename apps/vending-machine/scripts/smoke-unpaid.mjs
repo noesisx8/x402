@@ -96,6 +96,18 @@ async function main() {
     ok("unknown slug 404", res.status === 404);
   }
 
+  // Phase 2 hub utilities — unpaid must 402
+  for (const path of [
+    "/api/v/dns-resolve?host=example.com",
+    "/api/v/http-head?url=https://example.com",
+    "/api/v/bundle-infra?host=example.com",
+  ]) {
+    const res = await fetch(`${BASE}${path}`);
+    const pr = res.headers.get("payment-required") ?? res.headers.get("Payment-Required");
+    ok(`${path} → 402`, res.status === 402, `status=${res.status}`);
+    ok(`${path} Payment-Required`, Boolean(pr));
+  }
+
   console.log(failed === 0 ? "\nAll unpaid checks passed." : `\n${failed} check(s) failed.`);
   process.exit(failed === 0 ? 0 : 1);
 }

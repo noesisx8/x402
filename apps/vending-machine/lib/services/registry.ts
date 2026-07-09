@@ -6,8 +6,11 @@
  * Prices are validated against GLOBAL_MAX_PRICE_USD at wrap time (Phase 0.5).
  */
 import {
+  bundleInfraHandler,
   cryptoPricesHandler,
+  dnsResolveHandler,
   emailValidateHandler,
+  httpHeadHandler,
   ipLookupHandler,
   qrGeneratorHandler,
   weatherHandler,
@@ -68,6 +71,44 @@ export const VENDING_SERVICES: VendingService[] = [
       { name: "size", required: false },
     ],
     handler: qrGeneratorHandler,
+  },
+  // --- Phase 2 hub utilities ---
+  {
+    slug: "dns-resolve",
+    name: "DNS resolve",
+    description: "A/AAAA lookup via DNS-over-HTTPS (60s cache)",
+    price: "$0.003",
+    scheme: "exact",
+    enabled: true,
+    queryParams: [
+      { name: "host", required: true, description: "Hostname e.g. example.com" },
+    ],
+    handler: dnsResolveHandler,
+  },
+  {
+    slug: "http-head",
+    name: "HTTP HEAD probe",
+    description: "Status, latency, and header subset for a public URL",
+    price: "$0.002",
+    scheme: "exact",
+    enabled: true,
+    queryParams: [
+      { name: "url", required: true, description: "https://… public URL" },
+    ],
+    handler: httpHeadHandler,
+  },
+  {
+    slug: "bundle-infra",
+    name: "Infra bundle (DNS + HEAD + TLS)",
+    description: "One payment: DNS A/AAAA, HTTP HEAD, and TLS certificate peek",
+    price: "$0.01",
+    scheme: "exact",
+    enabled: true,
+    queryParams: [
+      { name: "host", required: false, description: "Hostname (or use url)" },
+      { name: "url", required: false, description: "Full URL (or use host)" },
+    ],
+    handler: bundleInfraHandler,
   },
 ];
 
