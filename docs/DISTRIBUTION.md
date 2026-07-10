@@ -93,8 +93,25 @@ Coinbase’s public marketplace is **[Agentic.Market](https://agentic.market/)**
 ## Success criteria
 
 - [x] Code: Bazaar extension + per-route discovery metadata  
-- [ ] Deploy live (this commit)  
-- [ ] `Payment-Required` contains `bazaar`  
-- [ ] ≥1 paid settle per seeded route after deploy  
-- [ ] Merchant/search discovery returns our URLs  
-- [ ] Visible on Agentic.Market (crawl lag possible)  
+- [x] Deploy live  
+- [x] `Payment-Required` contains `bazaar`  
+- [x] ≥1 paid settle after Bazaar deploy (merchant catalog indexed)  
+- [x] Merchant discovery returns our URLs (**11/12** as of 2026-07-10)  
+- [x] Semantic search by domain / payTo returns our URLs  
+- [ ] Optional: seed **`crypto-prices`** if missing from merchant list  
+- [ ] Visible on Agentic.Market (may lag Bazaar; check https://agentic.market/)  
+
+### Verified snapshot (2026-07-10)
+
+| Check | Result |
+|-------|--------|
+| Merchant `payTo=0xc648…b697` | **11** resources |
+| Search `query=vending-machine-seven` | **hits include our routes** |
+| Search `payTo=…` | **11** |
+| Indexed | email-validate, qr-code, weather, bundle-infra, http-head, whois-lite, dns-resolve, tls-cert, redirect-trace, fx-rate, ip-lookup |
+| Not in merchant list yet | `crypto-prices` (pay once via `/test` if you want full 12) |
+
+```http
+GET https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant?payTo=0xc648116b5deBE4AF7D78838AA468d07e0A9Ab697
+GET https://api.cdp.coinbase.com/platform/v2/x402/discovery/search?query=vending-machine-seven&network=eip155:8453
+```
