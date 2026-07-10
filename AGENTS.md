@@ -12,6 +12,12 @@ You are implementing **x402 V2** (payment metadata in headers; `@x402/*` npm org
 
 See `docs/HOSTS.md`.
 
+## GitHub
+
+- **Always use GitHub user `noesisx8`** for this repo (push, PRs, forks, awesome-x402).
+- If `gh auth status` shows another account active, switch: `gh auth switch --user noesisx8`.
+- Do **not** use `fourthdensity` for `noesisx8/x402`.
+
 ## Hard rules
 
 - **Never** bind production API ports or run funded mainnet payer scripts on **pikatop** (daily driver) unless the user explicitly opts into a one-off testnet experiment.
