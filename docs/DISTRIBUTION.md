@@ -105,12 +105,15 @@ Coinbase’s public marketplace is **[Agentic.Market](https://agentic.market/)**
 
 | Check | Result |
 |-------|--------|
-| Merchant `payTo=0xc648…b697` | **11** resources |
+| Merchant `payTo=0xc648…b697` | **11+** resources (expand after re-settle on new tools) |
 | Search `query=vending-machine-seven` | **hits include our routes** |
-| Search `payTo=…` | **11** |
-| **Agentic.Market** | **Live** — listing shows 11 endpoints, Base, USDC $0.002–$0.01, payTo `0xc648…b697` |
-| Indexed | email-validate, qr-code, weather, bundle-infra, http-head, whois-lite, dns-resolve, tls-cert, redirect-trace, fx-rate, ip-lookup |
-| Not in merchant list yet | `crypto-prices` (pay once via `/test` if you want full 12) |
+| Search `payTo=…` | **yes** |
+| **Agentic.Market** | **Live** — Found on Bazaar |
+| Catalog size | **17** live tools (quality expansion) |
+| Bazaar `routeTemplate` | Pinned to `/api/v/{slug}` (not `:var1`) |
+
+**New tools to seed (pay once each on `/test` after deploy):**  
+`dns-records`, `http-get`, `fetch-text`, `base-balance`, `domain-intel`, `crypto-prices` (if still missing)
 
 ```http
 GET https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant?payTo=0xc648116b5deBE4AF7D78838AA468d07e0A9Ab697
