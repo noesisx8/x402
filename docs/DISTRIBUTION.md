@@ -99,7 +99,7 @@ Coinbase’s public marketplace is **[Agentic.Market](https://agentic.market/)**
 - [x] Merchant discovery returns our URLs (**11/12** as of 2026-07-10)  
 - [x] Semantic search by domain / payTo returns our URLs  
 - [ ] Optional: seed **`crypto-prices`** if missing from merchant list  
-- [ ] Visible on Agentic.Market (may lag Bazaar; check https://agentic.market/)  
+- [x] **Visible on Agentic.Market** (2026-07-10 — user confirmed; found via Bazaar)
 
 ### Verified snapshot (2026-07-10)
 
@@ -108,6 +108,7 @@ Coinbase’s public marketplace is **[Agentic.Market](https://agentic.market/)**
 | Merchant `payTo=0xc648…b697` | **11** resources |
 | Search `query=vending-machine-seven` | **hits include our routes** |
 | Search `payTo=…` | **11** |
+| **Agentic.Market** | **Live** — listing shows 11 endpoints, Base, USDC $0.002–$0.01, payTo `0xc648…b697` |
 | Indexed | email-validate, qr-code, weather, bundle-infra, http-head, whois-lite, dns-resolve, tls-cert, redirect-trace, fx-rate, ip-lookup |
 | Not in merchant list yet | `crypto-prices` (pay once via `/test` if you want full 12) |
 
