@@ -106,6 +106,11 @@ async function main() {
     "/api/v/fx-rate?base=USD&symbols=EUR,GBP",
     "/api/v/redirect-trace?url=https://example.com",
     "/api/v/email-validate?email=test@gmail.com",
+    "/api/v/dns-records?host=example.com",
+    "/api/v/http-get?url=https://example.com",
+    "/api/v/fetch-text?url=https://example.com",
+    "/api/v/base-balance?address=0xc648116b5deBE4AF7D78838AA468d07e0A9Ab697",
+    "/api/v/domain-intel?host=example.com",
   ]) {
     const res = await fetch(`${BASE}${path}`);
     const pr = res.headers.get("payment-required") ?? res.headers.get("Payment-Required");

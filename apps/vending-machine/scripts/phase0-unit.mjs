@@ -49,6 +49,11 @@ for (const p of [
   "$0.008", // whois-lite
   "$0.003", // fx-rate
   "$0.003", // redirect-trace
+  "$0.004", // dns-records
+  "$0.004", // http-get
+  "$0.005", // fetch-text
+  "$0.003", // base-balance
+  "$0.015", // domain-intel
 ]) {
   assertPriceWithinCap(p);
 }

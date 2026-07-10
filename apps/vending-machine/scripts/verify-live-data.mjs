@@ -49,6 +49,7 @@ import {
   emailValidateHandler, ipLookupHandler, weatherHandler, cryptoPricesHandler,
   qrGeneratorHandler, dnsResolveHandler, httpHeadHandler, tlsCertHandler,
   whoisLiteHandler, fxRateHandler, redirectTraceHandler, bundleInfraHandler,
+  dnsRecordsHandler, httpGetHandler, fetchTextHandler, baseBalanceHandler, domainIntelHandler,
 } from ${JSON.stringify(pathToFileURL(tsPath).href)};
 
 const cases = [
@@ -64,6 +65,11 @@ const cases = [
   { id: "fx-rate", fn: fxRateHandler, query: { base: "USD", symbols: "EUR,GBP" } },
   { id: "redirect-trace", fn: redirectTraceHandler, query: { url: "https://httpbin.org/redirect/2" } },
   { id: "bundle-infra", fn: bundleInfraHandler, query: { host: "example.com" } },
+  { id: "dns-records", fn: dnsRecordsHandler, query: { host: "example.com", types: "A,MX" } },
+  { id: "http-get", fn: httpGetHandler, query: { url: "https://httpbin.org/json" } },
+  { id: "fetch-text", fn: fetchTextHandler, query: { url: "https://example.com" } },
+  { id: "base-balance", fn: baseBalanceHandler, query: { address: "0xc648116b5deBE4AF7D78838AA468d07e0A9Ab697" } },
+  { id: "domain-intel", fn: domainIntelHandler, query: { host: "example.com" } },
 ];
 
 const out = [];
@@ -128,6 +134,11 @@ async function main() {
       { id: "fx-rate", fn: mod.fxRateHandler, query: { base: "USD", symbols: "EUR,GBP" } },
       { id: "redirect-trace", fn: mod.redirectTraceHandler, query: { url: "https://httpbin.org/redirect/2" } },
       { id: "bundle-infra", fn: mod.bundleInfraHandler, query: { host: "example.com" } },
+      { id: "dns-records", fn: mod.dnsRecordsHandler, query: { host: "example.com", types: "A,MX" } },
+      { id: "http-get", fn: mod.httpGetHandler, query: { url: "https://httpbin.org/json" } },
+      { id: "fetch-text", fn: mod.fetchTextHandler, query: { url: "https://example.com" } },
+      { id: "base-balance", fn: mod.baseBalanceHandler, query: { address: "0xc648116b5deBE4AF7D78838AA468d07e0A9Ab697" } },
+      { id: "domain-intel", fn: mod.domainIntelHandler, query: { host: "example.com" } },
     ];
     results = [];
     for (const c of cases) {
@@ -195,6 +206,21 @@ async function main() {
           break;
         case "bundle-infra":
           assert(b.dns?.ok || b.http_head?.ok || b.tls?.ok, "bundle piece");
+          break;
+        case "dns-records":
+          assert(b.records?.A || b.records?.MX, "dns records");
+          break;
+        case "http-get":
+          assert(b.status >= 200, "http get status");
+          break;
+        case "fetch-text":
+          assert(typeof b.text === "string" && b.text.length > 0, "page text");
+          break;
+        case "base-balance":
+          assert(b.chain === "base" && typeof b.eth === "string", "base bal");
+          break;
+        case "domain-intel":
+          assert(b.dns?.ok || b.tls?.ok || b.whois?.ok, "intel piece");
           break;
       }
       console.log(`  ✓ ${r.id}`);

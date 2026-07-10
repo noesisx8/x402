@@ -5,11 +5,16 @@
  * CDP Bazaar indexes routes after first successful settle with bazaar extensions.
  */
 import {
+  baseBalanceHandler,
   bundleInfraHandler,
   cryptoPricesHandler,
+  dnsRecordsHandler,
   dnsResolveHandler,
+  domainIntelHandler,
   emailValidateHandler,
+  fetchTextHandler,
   fxRateHandler,
+  httpGetHandler,
   httpHeadHandler,
   ipLookupHandler,
   qrGeneratorHandler,
@@ -99,7 +104,11 @@ export const VENDING_SERVICES: VendingService[] = [
       exampleOutput: {
         service: "crypto-prices",
         ok: true,
-        prices: { bitcoin: { usd: 60000 }, ethereum: { usd: 3000 } },
+        prices: {
+          bitcoin: { usd: 60000, usd_24h_change: 1.2 },
+          ethereum: { usd: 3000, usd_24h_change: -0.5 },
+        },
+        include_24hr_change: true,
       },
     },
   },
@@ -277,6 +286,130 @@ export const VENDING_SERVICES: VendingService[] = [
         ok: true,
         hop_count: 2,
         final_status: 200,
+      },
+    },
+  },
+  // --- Agent-age quality expansion ---
+  {
+    slug: "dns-records",
+    name: "DNS multi-record",
+    description:
+      "Resolve multiple DNS record types (A, AAAA, MX, TXT, NS, CNAME) in one call via DoH for deliverability and security agents",
+    price: "$0.004",
+    scheme: "exact",
+    enabled: true,
+    queryParams: [
+      { name: "host", required: true, description: "Hostname e.g. example.com" },
+      { name: "types", required: false, description: "Comma list default A,AAAA,MX,TXT,NS" },
+    ],
+    handler: dnsRecordsHandler,
+    discovery: {
+      exampleQuery: { host: "example.com", types: "A,MX,TXT" },
+      exampleOutput: {
+        service: "dns-records",
+        ok: true,
+        host: "example.com",
+        records: { A: ["93.184.216.34"], MX: ["0 ."], TXT: [] },
+        source: "doh",
+      },
+    },
+  },
+  {
+    slug: "http-get",
+    name: "HTTP GET (capped body)",
+    description:
+      "SSRF-safe public GET with status, headers, and size-capped JSON/text body for agent tool use",
+    price: "$0.004",
+    scheme: "exact",
+    enabled: true,
+    queryParams: [
+      { name: "url", required: true, description: "Public https:// URL" },
+      { name: "max_bytes", required: false, description: "Max body bytes (default 48000)" },
+    ],
+    handler: httpGetHandler,
+    discovery: {
+      exampleQuery: { url: "https://httpbin.org/json" },
+      exampleOutput: {
+        service: "http-get",
+        ok: true,
+        status: 200,
+        content_type: "application/json",
+        truncated: false,
+      },
+    },
+  },
+  {
+    slug: "fetch-text",
+    name: "Fetch page text",
+    description:
+      "Fetch a public page and return plain text (HTML stripped) for research, RAG, and summarization agents",
+    price: "$0.005",
+    scheme: "exact",
+    enabled: true,
+    queryParams: [
+      { name: "url", required: true, description: "Public https:// page URL" },
+      { name: "max_chars", required: false, description: "Max text chars default 12000" },
+    ],
+    handler: fetchTextHandler,
+    discovery: {
+      exampleQuery: { url: "https://example.com" },
+      exampleOutput: {
+        service: "fetch-text",
+        ok: true,
+        title: "Example Domain",
+        text: "Example Domain This domain is for use in illustrative examples...",
+        chars: 120,
+        truncated: false,
+      },
+    },
+  },
+  {
+    slug: "base-balance",
+    name: "Base wallet balances",
+    description:
+      "Live Base mainnet ETH and USDC balances for an address — treasury and agent wallet checks",
+    price: "$0.003",
+    scheme: "exact",
+    enabled: true,
+    queryParams: [
+      { name: "address", required: true, description: "0x EVM address on Base" },
+    ],
+    handler: baseBalanceHandler,
+    discovery: {
+      exampleQuery: { address: "0xc648116b5deBE4AF7D78838AA468d07e0A9Ab697" },
+      exampleOutput: {
+        service: "base-balance",
+        ok: true,
+        chain: "base",
+        eth: "0.01",
+        usdc: "12.34",
+        source: "base-mainnet-rpc",
+      },
+    },
+  },
+  {
+    slug: "domain-intel",
+    name: "Domain intel pack",
+    description:
+      "One payment: DNS + TLS cert + RDAP WHOIS + HTTP HEAD for brand protection and security agents",
+    price: "$0.015",
+    scheme: "exact",
+    enabled: true,
+    queryParams: [
+      { name: "host", required: false, description: "Hostname e.g. example.com" },
+      { name: "url", required: false, description: "Or full https URL" },
+    ],
+    handler: domainIntelHandler,
+    discovery: {
+      exampleQuery: { host: "example.com" },
+      exampleOutput: {
+        service: "domain-intel",
+        ok: true,
+        host: "example.com",
+        dns: { ok: true },
+        tls: { ok: true },
+        whois: { ok: true },
+        http_head: { ok: true },
       },
     },
   },

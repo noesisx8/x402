@@ -4,56 +4,53 @@
 **Network:** Base mainnet (`eip155:8453`) · exact USDC  
 **Pay-to:** `0xc648116b5deBE4AF7D78838AA468d07e0A9Ab697`  
 **Facilitator:** Coinbase CDP `https://api.cdp.coinbase.com/platform/v2/x402`  
-**Protocol:** x402 V2 (header `Payment-Required` / payment signature)
+**Protocol:** x402 V2 + Bazaar discovery extensions  
 
 ## Discovery (agents)
 
 | Endpoint | Purpose |
 |----------|---------|
-| `/.well-known/x402` | Protocol + endpoint list |
+| `/.well-known/x402` | Protocol + full endpoint list |
 | `/.well-known/agent-services.json` | Catalog, prices, pay-to, query params |
 | `/api/openapi.json` | OpenAPI 3.1 |
+| `/llms.txt` | Agent-oriented tool map |
 | `/api/health` | Liveness + network_mode |
 | `/test` | Human paid wallet smoke |
 
 ## Production services (live data only)
 
-| Slug | Price | Live upstream | Status |
-|------|-------|---------------|--------|
-| `email-validate` | $0.004 | DoH MX (Cloudflare) + format/disposable | Live |
-| `ip-lookup` | $0.003 | ipapi.co | Live |
-| `weather` | $0.003 | Open-Meteo | Live |
-| `crypto-prices` | $0.005 | CoinGecko | Live |
-| `qr-code` | $0.002 | api.qrserver.com (probed) | Live |
-| `dns-resolve` | $0.003 | DoH Cloudflare | Live · paid E2E |
-| `http-head` | $0.002 | fetch HEAD/GET | Live · paid E2E |
-| `bundle-infra` | $0.01 | DNS + HEAD + TLS | Live |
-| `tls-cert` | $0.004 | TLS handshake | Live · paid E2E |
-| `whois-lite` | $0.008 | RDAP (rdap.org) | Live · paid E2E |
-| `fx-rate` | $0.003 | Frankfurter/ECB · open.er-api fallback | Live |
-| `redirect-trace` | $0.003 | Manual redirect hops, SSRF-safe | Live |
+### Core utilities
+| Slug | Price | Live upstream |
+|------|-------|---------------|
+| `email-validate` | $0.004 | DoH MX |
+| `ip-lookup` | $0.003 | ipapi.co |
+| `weather` | $0.003 | Open-Meteo |
+| `crypto-prices` | $0.005 | CoinGecko (+ 24h change) |
+| `qr-code` | $0.002 | api.qrserver.com |
+| `fx-rate` | $0.003 | Frankfurter/ECB |
 
-**Policy:** handlers fail closed (HTTP 400) on upstream/empty data so x402 does **not** settle. No `mock_ok` or fabricated business payloads.
+### Infra & security
+| Slug | Price | Live upstream |
+|------|-------|---------------|
+| `dns-resolve` | $0.003 | DoH A/AAAA |
+| `dns-records` | $0.004 | DoH multi-type |
+| `http-head` | $0.002 | HEAD/GET |
+| `http-get` | $0.004 | capped body GET |
+| `redirect-trace` | $0.003 | hop chain |
+| `tls-cert` | $0.004 | TLS handshake |
+| `whois-lite` | $0.008 | RDAP |
+| `bundle-infra` | $0.01 | DNS+HEAD+TLS |
+| `domain-intel` | $0.015 | DNS+TLS+WHOIS+HEAD |
 
-## Verification (portalv2)
+### Agent-native
+| Slug | Price | Live upstream |
+|------|-------|---------------|
+| `fetch-text` | $0.005 | page → plain text |
+| `base-balance` | $0.003 | Base ETH + USDC |
 
-```bash
-cd apps/vending-machine
-npm run test:unit
-npm run test:live      # handlers hit real upstreams
-npm run smoke:unpaid   # production 402 + discovery
-```
+**Policy:** fail closed on upstream errors (no settle). No mock payloads. Bazaar `routeTemplate` pinned to `/api/v/{slug}`.
 
-## One-line listing (awesome-x402 / marketplaces)
+## Distribution
 
-> **x402 Vending Machine** — Base mainnet pay-per-call utilities for agents: DNS, TLS, WHOIS, HTTP HEAD, redirect trace, email MX, FX, IP, crypto spot, QR. Discovery: https://vending-machine-seven.vercel.app/.well-known/x402
-
-**awesome-x402 PR:** https://github.com/xpaysh/awesome-x402/pull/778  
-
-**Distribution (Bazaar + Agentic.Market):** `docs/DISTRIBUTION.md`
-
-## Example paid flow
-
-1. `GET /api/v/dns-resolve?host=example.com` → **402** + `Payment-Required`
-2. Sign exact USDC payment (wallet / `@x402/fetch`)
-3. Retry same URL → **200** + JSON + `PAYMENT-RESPONSE`
+- CDP Bazaar + Agentic.Market: `docs/DISTRIBUTION.md`
+- awesome-x402 PR: https://github.com/xpaysh/awesome-x402/pull/778

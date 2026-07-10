@@ -1,5 +1,11 @@
 import type { VendingHandler } from "@/lib/services/types";
 import {
+  baseWalletSnapshot,
+  fetchPageText,
+  resolveDnsRecords,
+  safeHttpGet,
+} from "@/lib/services/agent-utils";
+import {
   fxRates,
   hostFromBundleQuery,
   httpHead,
@@ -137,7 +143,7 @@ export const cryptoPricesHandler: VendingHandler = async (_req, query) => {
     .filter(Boolean)
     .slice(0, 25);
   if (idList.length === 0) throw new Error("missing ids");
-  const url = `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(idList.join(","))}&vs_currencies=usd`;
+  const url = `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(idList.join(","))}&vs_currencies=usd&include_24hr_change=true`;
   const res = await fetch(url, {
     signal: AbortSignal.timeout(8000),
     headers: { Accept: "application/json" },
@@ -147,7 +153,13 @@ export const cryptoPricesHandler: VendingHandler = async (_req, query) => {
   if (!prices || typeof prices !== "object" || Object.keys(prices).length === 0) {
     throw new Error("coingecko_empty");
   }
-  return { ids: idList, prices, source: "api.coingecko.com", vs: "usd" };
+  return {
+    ids: idList,
+    prices,
+    vs: "usd",
+    include_24hr_change: true,
+    source: "api.coingecko.com",
+  };
 };
 
 /**
@@ -279,4 +291,80 @@ export const redirectTraceHandler: VendingHandler = async (_req, query) => {
   const max = Math.min(10, Math.max(1, Number(query.max_hops ?? 10) || 10));
   const trace = await redirectTrace(url, max);
   return { ...trace };
+};
+
+/** Multi-type DNS (A/AAAA/MX/TXT/NS/CNAME) one call — high agent demand. */
+export const dnsRecordsHandler: VendingHandler = async (_req, query) => {
+  const host = String(query.host ?? query.domain ?? "").trim();
+  if (!host) throw new Error("missing host");
+  const types = query.types !== undefined ? String(query.types) : undefined;
+  const out = await resolveDnsRecords(host, types);
+  return { ...out };
+};
+
+/** Limited public GET — JSON or text body for agents (SSRF-safe, size-capped). */
+export const httpGetHandler: VendingHandler = async (_req, query) => {
+  const url = String(query.url ?? "").trim();
+  if (!url) throw new Error("missing url");
+  const max = Math.min(48_000, Math.max(1024, Number(query.max_bytes ?? 48_000) || 48_000));
+  const got = await safeHttpGet(url, max);
+  return { ...got };
+};
+
+/** HTML → plain text extract for research / RAG agents. */
+export const fetchTextHandler: VendingHandler = async (_req, query) => {
+  const url = String(query.url ?? "").trim();
+  if (!url) throw new Error("missing url");
+  const maxChars = Math.min(20_000, Math.max(500, Number(query.max_chars ?? 12_000) || 12_000));
+  const page = await fetchPageText(url, maxChars);
+  return { ...page, source: "fetch+html-strip" };
+};
+
+/** Base mainnet ETH + USDC balances — agent wallets / treasury checks. */
+export const baseBalanceHandler: VendingHandler = async (_req, query) => {
+  const address = String(query.address ?? query.wallet ?? "").trim();
+  if (!address) throw new Error("missing address");
+  const snap = await baseWalletSnapshot(address);
+  return { ...snap };
+};
+
+/**
+ * Domain intel pack — DNS + TLS + WHOIS + HEAD in one payment.
+ * Differentiator for security / brand agents.
+ */
+export const domainIntelHandler: VendingHandler = async (_req, query) => {
+  const hostOrUrl = String(query.host ?? query.domain ?? query.url ?? "").trim();
+  if (!hostOrUrl) throw new Error("missing host or url");
+  const { host, url } = hostFromBundleQuery(
+    hostOrUrl.includes("://")
+      ? { url: hostOrUrl }
+      : { host: hostOrUrl },
+  );
+  const started = Date.now();
+  const [dns, tls, whois, head] = await Promise.allSettled([
+    resolveDns(host),
+    tlsCertPeek(host),
+    whoisLite(host),
+    httpHead(url),
+  ]);
+  const pick = <T,>(r: PromiseSettledResult<T>) =>
+    r.status === "fulfilled"
+      ? { ok: true as const, data: r.value }
+      : { ok: false as const, error: String(r.reason).slice(0, 160) };
+
+  const parts = {
+    dns: pick(dns),
+    tls: pick(tls),
+    whois: pick(whois),
+    http_head: pick(head),
+  };
+  if (!parts.dns.ok && !parts.tls.ok && !parts.whois.ok && !parts.http_head.ok) {
+    throw new Error("domain_intel_all_failed");
+  }
+  return {
+    host,
+    url,
+    ms_total: Date.now() - started,
+    ...parts,
+  };
 };

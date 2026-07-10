@@ -9,6 +9,12 @@ import {
 } from "@/lib/x402/paid-fetch-client";
 
 const SERVICES = [
+  { slug: "fetch-text", qs: "url=https://example.com" },
+  { slug: "http-get", qs: "url=https://httpbin.org/json" },
+  { slug: "dns-records", qs: "host=example.com&types=A,MX,TXT" },
+  { slug: "domain-intel", qs: "host=example.com" },
+  { slug: "base-balance", qs: "address=0xc648116b5deBE4AF7D78838AA468d07e0A9Ab697" },
+  { slug: "crypto-prices", qs: "ids=bitcoin,ethereum" },
   { slug: "email-validate", qs: "email=test@gmail.com" },
   { slug: "fx-rate", qs: "base=USD&symbols=EUR,GBP,JPY" },
   { slug: "redirect-trace", qs: "url=https://httpbin.org/redirect/2" },
@@ -18,7 +24,6 @@ const SERVICES = [
   { slug: "http-head", qs: "url=https://example.com" },
   { slug: "bundle-infra", qs: "host=example.com" },
   { slug: "qr-code", qs: "data=https://x402.org" },
-  { slug: "crypto-prices", qs: "ids=bitcoin,ethereum" },
   { slug: "weather", qs: "city=Berlin" },
   { slug: "ip-lookup", qs: "ip=8.8.8.8" },
 ];
