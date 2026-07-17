@@ -5,8 +5,10 @@ pandas==2.2.3
 numpy==2.2.5
 httpx==0.28.1
 huggingface_hub==0.30.2
-# CPU torch — Railway/Docker should use the official CPU index if needed
-torch==2.7.0
+# CPU torch — Railway/Docker should use the official CPU index if needed.
+# Pin 2.9.1: addresses Dependabot medium CVEs (resource release, unpack_sequence)
+# without jumping 2.7→2.12. Revisit 2.12.x after Railway rebuild + paid smoke.
+torch==2.9.1
 einops==0.8.1
 safetensors==0.5.3
 tqdm==4.67.1
