@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Address } from "viem";
 import {
   connectBrowserWallet,
@@ -8,55 +8,65 @@ import {
   type ClientNetworkConfig,
 } from "@/lib/x402/paid-fetch-client";
 
-const SERVICES = [
-  // Bundles / premium first (go-to + Kronos)
-  { slug: "bundle-outbound", qs: "email=test@gmail.com&ip=8.8.8.8&url=https://example.com" },
-  { slug: "bundle-infra", qs: "host=example.com" },
-  { slug: "domain-intel", qs: "host=example.com" },
-  {
-    slug: "kronos-forecast",
-    qs: "symbol=BTCUSDT&interval=1h&lookback=64&pred_len=6",
-  },
-  // Atoms
-  { slug: "fetch-text", qs: "url=https://example.com" },
-  { slug: "http-get", qs: "url=https://httpbin.org/json" },
-  { slug: "dns-records", qs: "host=example.com&types=A,MX,TXT" },
-  { slug: "base-balance", qs: "address=0xc648116b5deBE4AF7D78838AA468d07e0A9Ab697" },
-  { slug: "crypto-prices", qs: "ids=bitcoin,ethereum" },
-  { slug: "email-validate", qs: "email=test@gmail.com" },
-  { slug: "fx-rate", qs: "base=USD&symbols=EUR,GBP,JPY" },
-  { slug: "redirect-trace", qs: "url=https://httpbin.org/redirect/2" },
-  { slug: "tls-cert", qs: "host=example.com" },
-  { slug: "whois-lite", qs: "domain=example.com" },
-  { slug: "dns-resolve", qs: "host=example.com" },
-  { slug: "http-head", qs: "url=https://example.com" },
-  { slug: "qr-code", qs: "data=https://x402.org" },
-  { slug: "weather", qs: "city=Berlin" },
-  { slug: "ip-lookup", qs: "ip=8.8.8.8" },
-];
+type TestService = {
+  slug: string;
+  name?: string;
+  price?: string;
+  category?: string;
+  qs: string;
+};
 
 export default function TestPage() {
-  const [slug, setSlug] = useState(SERVICES[0].slug);
-  const [qs, setQs] = useState(SERVICES[0].qs);
+  const [services, setServices] = useState<TestService[]>([]);
+  const [slug, setSlug] = useState("");
+  const [qs, setQs] = useState("");
   const [out, setOut] = useState("");
   const [config, setConfig] = useState<ClientNetworkConfig | null>(null);
   const [address, setAddress] = useState<Address | null>(null);
   const [busy, setBusy] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/config/client")
+    fetch("/api/config/client", { cache: "no-store" })
       .then((r) => r.json())
       .then((j) => setConfig(j as ClientNetworkConfig))
       .catch(() => setOut("Failed to load /api/config/client"));
   }, []);
 
-  const url = `/api/v/${slug}?${qs}`;
+  useEffect(() => {
+    // Live registry — never a hardcoded list (prevents missing new SKUs like kronos-forecast)
+    fetch("/api/config/test-services", { cache: "no-store" })
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`test-services HTTP ${r.status}`);
+        return r.json() as Promise<{ services: TestService[] }>;
+      })
+      .then((j) => {
+        const list = j.services ?? [];
+        setServices(list);
+        if (list.length > 0) {
+          setSlug(list[0].slug);
+          setQs(list[0].qs ?? "");
+        }
+      })
+      .catch((e) => {
+        setListError(String(e));
+        setOut(`Failed to load service list: ${String(e)}`);
+      });
+  }, []);
+
+  const selected = useMemo(
+    () => services.find((s) => s.slug === slug),
+    [services, slug],
+  );
+
+  const url = slug ? `/api/v/${slug}?${qs}` : "";
 
   const callUnpaid = useCallback(async () => {
+    if (!url) return;
     setBusy(true);
     setOut("Loading…");
     try {
-      const res = await fetch(url);
+      const res = await fetch(url, { cache: "no-store" });
       const text = await res.text();
       setOut(`HTTP ${res.status}\n${text}`);
     } catch (e) {
@@ -86,18 +96,20 @@ export default function TestPage() {
       setOut("Connect wallet first.");
       return;
     }
+    if (!url) return;
     setBusy(true);
     setOut("402 → sign in wallet → retry…");
     try {
       const res = await paidGet(url, address, config);
-      const paymentResponse = res.headers.get("payment-response") ?? res.headers.get("PAYMENT-RESPONSE");
+      const paymentResponse =
+        res.headers.get("payment-response") ?? res.headers.get("PAYMENT-RESPONSE");
       const text = await res.text();
       let extra = "";
       if (paymentResponse) {
         extra = `\n\n(settlement header present, length ${paymentResponse.length})`;
       } else if (res.status === 402) {
         extra =
-          "\n\nStill 402: not settled. Use Pay & GET (not the unpaid button), approve USDC in wallet, keep query string unchanged. Weather costs $0.003 USDC on Base.";
+          "\n\nStill 402: not settled. Use Pay & GET (not the unpaid button), approve USDC in wallet, keep query string unchanged.";
       }
       setOut(`HTTP ${res.status}\n${text}${extra}`);
     } catch (e) {
@@ -111,8 +123,9 @@ export default function TestPage() {
     <main className="mx-auto max-w-3xl px-6 py-12">
       <h1 className="text-2xl font-semibold">x402 paid test</h1>
       <p className="mt-2 text-sm text-zinc-400">
-        Step 1: unpaid GET expects <strong className="text-amber-400">402</strong>. Step 2: connect wallet on{" "}
-        {config?.chainName ?? "…"} with USDC, then <strong className="text-emerald-400">Pay &amp; GET</strong> for{" "}
+        Step 1: unpaid GET expects <strong className="text-amber-400">402</strong>. Step 2: connect
+        wallet on {config?.chainName ?? "…"} with USDC, then{" "}
+        <strong className="text-emerald-400">Pay &amp; GET</strong> for{" "}
         <strong className="text-emerald-400">200</strong> + JSON.
       </p>
       {config && (
@@ -120,24 +133,37 @@ export default function TestPage() {
           Server network: {config.caipNetwork} — {config.hint}
         </p>
       )}
+      {listError && (
+        <p className="mt-2 text-sm text-red-400">Service list error: {listError}</p>
+      )}
       <label className="mt-6 block text-sm">
-        Service
+        Service ({services.length} from live registry)
         <select
           className="mt-1 w-full rounded border border-zinc-700 bg-zinc-900 p-2"
           value={slug}
+          disabled={services.length === 0}
           onChange={(e) => {
-            const pick = SERVICES.find((s) => s.slug === e.target.value);
+            const pick = services.find((s) => s.slug === e.target.value);
             setSlug(e.target.value);
-            if (pick) setQs(pick.qs);
+            if (pick) setQs(pick.qs ?? "");
           }}
         >
-          {SERVICES.map((s) => (
+          {services.length === 0 && <option value="">Loading services…</option>}
+          {services.map((s) => (
             <option key={s.slug} value={s.slug}>
+              {s.category && s.category !== "atom" ? `[${s.category}] ` : ""}
               {s.slug}
+              {s.price ? ` (${s.price})` : ""}
             </option>
           ))}
         </select>
       </label>
+      {selected && (
+        <p className="mt-1 text-xs text-zinc-500">
+          {selected.name ?? selected.slug}
+          {selected.category ? ` · ${selected.category}` : ""}
+        </p>
+      )}
       <label className="mt-4 block text-sm">
         Query string
         <input
@@ -149,7 +175,7 @@ export default function TestPage() {
       <div className="mt-4 flex flex-wrap gap-2">
         <button
           type="button"
-          disabled={busy}
+          disabled={busy || !slug}
           onClick={callUnpaid}
           className="rounded border border-zinc-600 px-4 py-2 text-sm hover:bg-zinc-800 disabled:opacity-50"
         >
@@ -165,7 +191,7 @@ export default function TestPage() {
         </button>
         <button
           type="button"
-          disabled={busy || !address}
+          disabled={busy || !address || !slug}
           onClick={callPaid}
           className="rounded bg-emerald-600 px-4 py-2 text-sm font-medium hover:bg-emerald-500 disabled:opacity-50"
         >
