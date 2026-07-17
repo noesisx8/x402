@@ -206,6 +206,28 @@ export default function TestPage() {
       <pre className="mt-6 overflow-auto rounded border border-zinc-800 bg-black/40 p-4 text-xs whitespace-pre-wrap">
         {out}
       </pre>
+      {slug === "kronos-forecast" && (
+        <p className="mt-4 text-xs text-zinc-500">
+          <strong className="text-zinc-400">Research only.</strong> Kronos outputs are not financial
+          advice or trading signals.{" "}
+          <a className="text-emerald-400 underline" href="/disclaimer">
+            Full disclaimer →
+          </a>
+        </p>
+      )}
+      <p className="mt-8 text-xs text-zinc-600">
+        <a className="underline hover:text-zinc-400" href="/terms">
+          Terms
+        </a>
+        {" · "}
+        <a className="underline hover:text-zinc-400" href="/privacy">
+          Privacy
+        </a>
+        {" · "}
+        <a className="underline hover:text-zinc-400" href="/disclaimer">
+          Research Disclaimer
+        </a>
+      </p>
     </main>
   );
 }

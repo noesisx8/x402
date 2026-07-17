@@ -3,7 +3,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "x402 Vending Machine",
-  description: "Modular pay-per-call APIs for AI agents (USDC / x402 V2)",
+  description:
+    "Pay-per-call HTTP utilities and AI-ready research tools, settled in USDC on Base — no accounts required.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
