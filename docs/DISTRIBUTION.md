@@ -78,7 +78,7 @@ Coinbase’s public marketplace is **[Agentic.Market](https://agentic.market/)**
 
 ### Listing blurb (copy/paste)
 
-> **x402 Vending Machine** — 12 Base mainnet pay-per-call utilities for AI agents (DNS, TLS, WHOIS, HEAD, redirects, email MX, FX, IP, crypto, QR, infra bundle). Exact USDC via CDP. Discovery: https://vending-machine-seven.vercel.app/.well-known/x402
+> **x402 Vending Machine** — Base mainnet **bundler hub** for AI agents: multi-step packs (infra, outbound, domain intel) + utilities + Kronos research candle forecasts. Exact USDC via CDP. Discovery: https://vending-machine-seven.vercel.app/.well-known/x402
 
 ---
 
@@ -113,7 +113,7 @@ Coinbase’s public marketplace is **[Agentic.Market](https://agentic.market/)**
 | Bazaar `routeTemplate` | Pinned to `/api/v/{slug}` (not `:var1`) |
 
 **New tools to seed (pay once each on `/test` after deploy):**  
-`dns-records`, `http-get`, `fetch-text`, `base-balance`, `domain-intel`, `crypto-prices` (if still missing)
+`bundle-outbound`, `kronos-forecast` (needs Railway `KRONOS_API_*`), plus any still-missing: `dns-records`, `fetch-text`, `domain-intel`
 
 ```http
 GET https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant?payTo=0xc648116b5deBE4AF7D78838AA468d07e0A9Ab697

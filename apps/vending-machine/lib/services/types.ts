@@ -18,6 +18,9 @@ export type VendingDiscovery = {
   outputSchema?: Record<string, unknown>;
 };
 
+/** UI / catalog grouping — bundles lead discovery; premium is higher ARPU. */
+export type VendingCategory = "bundle" | "atom" | "premium";
+
 export type VendingService = {
   slug: string;
   name: string;
@@ -26,6 +29,8 @@ export type VendingService = {
   price: string;
   scheme: "exact" | "upto";
   enabled: boolean;
+  /** Catalog section; default atom when omitted. */
+  category?: VendingCategory;
   queryParams: { name: string; required?: boolean; description?: string }[];
   handler: VendingHandler;
   /** CDP Bazaar discovery metadata (optional but recommended). */

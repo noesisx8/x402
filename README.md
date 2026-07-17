@@ -22,12 +22,13 @@ Facilitator — Coinbase CDP hosted (default) or self-hosted proxy (apps/facilit
 
 | Path | Purpose |
 |------|---------|
-| `apps/vending-machine` | Next.js x402 vending machine (Vercel) |
+| `apps/vending-machine` | Next.js x402 bundler hub (Vercel) — packs + atoms + Kronos proxy |
+| `apps/kronos-api` | Private Kronos-mini inference (Railway CPU) for `kronos-forecast` |
 | `apps/api` | Monetized HTTP API (middleware, routes, discovery) |
 | `apps/facilitator-proxy` | Optional thin proxy if you self-host verify/settle later |
-| `deploy/railway` | Railway service config + env template |
+| `deploy/railway` | Railway service config + env template (`kronos.md` for inference) |
 | `deploy/portalv2` | systemd + env for home server |
-| `docs/` | Security, pricing, runbooks |
+| `docs/` | Security, pricing, Kronos, runbooks |
 
 ## Deploy targets (only)
 

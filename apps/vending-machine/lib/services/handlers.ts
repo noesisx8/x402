@@ -329,6 +329,62 @@ export const baseBalanceHandler: VendingHandler = async (_req, query) => {
 };
 
 /**
+ * Outbound / lead-gen pack — email MX + IP geo + HTTP HEAD in one 402.
+ * Bundle price targets ≈ sum of atoms for sticky multi-signal agent jobs.
+ */
+export const bundleOutboundHandler: VendingHandler = async (req, query) => {
+  const email = String(query.email ?? "").trim();
+  const ip = String(query.ip ?? "").trim();
+  const url = String(query.url ?? "").trim();
+  if (!email) throw new Error("missing email");
+  if (!ip) throw new Error("missing ip");
+  if (!url) throw new Error("missing url");
+
+  const started = Date.now();
+  const [emailSettled, ipSettled, headSettled] = await Promise.allSettled([
+    emailValidateHandler(req, { email }),
+    ipLookupHandler(req, { ip }),
+    httpHeadHandler(req, { url }),
+  ]);
+
+  const pick = <T,>(r: PromiseSettledResult<T>) =>
+    r.status === "fulfilled"
+      ? { ok: true as const, data: r.value }
+      : { ok: false as const, error: String(r.reason).slice(0, 160) };
+
+  const emailPart = pick(emailSettled);
+  const ipPart = pick(ipSettled);
+  const headPart = pick(headSettled);
+
+  if (!emailPart.ok && !ipPart.ok && !headPart.ok) {
+    throw new Error(
+      `bundle_outbound_all_failed: email=${emailPart.ok ? "ok" : emailPart.error}; ip=${ipPart.ok ? "ok" : ipPart.error}; head=${headPart.ok ? "ok" : headPart.error}`,
+    );
+  }
+
+  return {
+    email: emailPart,
+    ip: ipPart,
+    http_head: headPart,
+    ms_total: Date.now() - started,
+  };
+};
+
+/**
+ * Kronos candle forecast — proxies Railway (or portalv2) inference API.
+ * Fail-closed: backend errors throw → 400 → no settle.
+ */
+export const kronosForecastHandler: VendingHandler = async (_req, query) => {
+  const { callKronosForecast } = await import("@/lib/services/kronos-client");
+  const symbol = String(query.symbol ?? "BTCUSDT").trim().toUpperCase();
+  const interval = String(query.interval ?? "1h").trim();
+  const lookback = Number(query.lookback ?? 128) || 128;
+  const pred_len = Number(query.pred_len ?? 12) || 12;
+  const model = String(query.model ?? "mini").trim().toLowerCase();
+  return callKronosForecast({ symbol, interval, lookback, pred_len, model });
+};
+
+/**
  * Domain intel pack — DNS + TLS + WHOIS + HEAD in one payment.
  * Differentiator for security / brand agents.
  */

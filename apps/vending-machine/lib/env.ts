@@ -16,8 +16,12 @@ export const serverEnv = z
     CDP_API_KEY_SECRET: z.string().optional(),
     /** Protects /api/admin/stats full payload */
     ANALYTICS_TOKEN: z.string().optional(),
-    /** Optional override; default 0.05 via pricing.ts */
+    /** Optional override; default 0.05 via pricing.ts — set 0.50 for premium Kronos tiers */
     X402_MAX_PRICE_USD: z.string().optional(),
+    /** Railway / portalv2 Kronos inference base URL (no trailing slash required) */
+    KRONOS_API_URL: z.string().url().optional(),
+    /** Shared secret for Authorization: Bearer on kronos-api */
+    KRONOS_API_SECRET: z.string().optional(),
   })
   .parse({
     X402_PAY_TO_ADDRESS:
@@ -32,6 +36,8 @@ export const serverEnv = z
     CDP_API_KEY_SECRET: process.env.CDP_API_KEY_SECRET,
     ANALYTICS_TOKEN: process.env.ANALYTICS_TOKEN,
     X402_MAX_PRICE_USD: process.env.X402_MAX_PRICE_USD,
+    KRONOS_API_URL: process.env.KRONOS_API_URL?.trim() || undefined,
+    KRONOS_API_SECRET: process.env.KRONOS_API_SECRET,
   });
 
 export type NetworkMode = z.infer<typeof networkMode>;

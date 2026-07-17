@@ -8,7 +8,7 @@ export async function GET() {
     version: 2,
     name: "x402-vending-machine",
     description:
-      "Pay-per-call utility hub for AI agents: DNS, TLS, WHOIS, HTTP, FX, crypto, email MX, Base balances, page text extract, domain intel packs",
+      "Base x402 bundler hub for AI agents: multi-step packs (infra, outbound, domain intel), utilities, and Kronos research candle forecasts",
     network: CAIP_NETWORK[serverEnv.X402_NETWORK_MODE],
     pay_to: serverEnv.X402_PAY_TO_ADDRESS,
     facilitator: serverEnv.X402_FACILITATOR_URL,
@@ -19,6 +19,7 @@ export async function GET() {
       scheme: s.scheme,
       priceHint: s.price.replace("$", ""),
       asset: "USDC",
+      category: s.category ?? "atom",
       description: s.description,
       query: s.queryParams,
     })),

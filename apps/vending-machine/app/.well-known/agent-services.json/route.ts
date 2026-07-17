@@ -14,10 +14,12 @@ export async function GET() {
     caip_network: CAIP_NETWORK[serverEnv.X402_NETWORK_MODE],
     pay_to: serverEnv.X402_PAY_TO_ADDRESS,
     facilitator: serverEnv.X402_FACILITATOR_URL,
+    positioning: "Base x402 bundler hub — multi-step packs first; Kronos research forecasts optional premium",
     services: VENDING_SERVICES.filter((s) => s.enabled).map((s) => ({
       slug: s.slug,
       name: s.name,
       description: s.description,
+      category: s.category ?? "atom",
       price_usdc_hint: s.price,
       scheme: s.scheme,
       method: "GET",

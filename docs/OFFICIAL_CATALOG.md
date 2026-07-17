@@ -40,6 +40,7 @@
 | `tls-cert` | $0.004 | TLS handshake |
 | `whois-lite` | $0.008 | RDAP |
 | `bundle-infra` | $0.01 | DNS+HEAD+TLS |
+| `bundle-outbound` | $0.01 | email MX + IP geo + HEAD |
 | `domain-intel` | $0.015 | DNS+TLS+WHOIS+HEAD |
 
 ### Agent-native
@@ -48,7 +49,13 @@
 | `fetch-text` | $0.005 | page → plain text |
 | `base-balance` | $0.003 | Base ETH + USDC |
 
-**Policy:** fail closed on upstream errors (no settle). No mock payloads. Bazaar `routeTemplate` pinned to `/api/v/{slug}`.
+### Premium
+| Slug | Price | Live upstream |
+|------|-------|---------------|
+| `kronos-forecast` | $0.05 | Binance OHLCV + Kronos-mini (Railway) |
+
+**Policy:** fail closed on upstream errors (no settle). No mock payloads. Bazaar `routeTemplate` pinned to `/api/v/{slug}`.  
+**Positioning:** Base x402 **bundler hub** — multi-step packs first; Kronos research forecasts are not financial advice. See `docs/KRONOS.md`.
 
 ## Distribution
 
