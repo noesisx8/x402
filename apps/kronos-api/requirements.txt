@@ -6,7 +6,7 @@ numpy==2.2.5
 httpx==0.28.1
 huggingface_hub==0.30.2
 # CPU torch — Railway/Docker should use the official CPU index if needed
-torch==2.7.0
+torch==2.13.0
 einops==0.8.1
 safetensors==0.5.3
 tqdm==4.67.1
