@@ -71,13 +71,14 @@ async def forecast(body: ForecastRequest) -> ForecastResponse:
     pred_len = min(body.pred_len, max_pred)
 
     try:
-        df = await fetch_ohlcv(body.symbol, body.interval, lookback)
+        df, source = await fetch_ohlcv(body.symbol, body.interval, lookback)
         result = run_forecast(
             df,
             symbol=body.symbol,
             interval=body.interval,
             lookback=lookback,
             pred_len=pred_len,
+            source_ohlcv=source,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e

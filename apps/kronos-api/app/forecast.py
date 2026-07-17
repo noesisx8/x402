@@ -93,6 +93,7 @@ def run_forecast(
     interval: str,
     lookback: int,
     pred_len: int,
+    source_ohlcv: str = "unknown",
 ) -> dict[str, Any]:
     if _PREDICTOR is None:
         raise RuntimeError("model_not_loaded")
@@ -155,7 +156,7 @@ def run_forecast(
         "lookback": lookback,
         "pred_len": pred_len,
         "model_id": _MODEL_ID or "unknown",
-        "source_ohlcv": "binance",
+        "source_ohlcv": source_ohlcv,
         "ms_total": ms,
         "forecast": forecast,
         "summary": {

@@ -58,10 +58,18 @@ Allowlist v1: symbols `BTCUSDT`, `ETHUSDT`; intervals `15m`, `1h`, `4h`.
 
 Fail-closed: backend down / bad params → HTTP **400** → **no settle**.
 
+## OHLCV sources
+
+`api.binance.com` often returns **HTTP 451** from US cloud IPs (Railway `sfo`).  
+The service tries, in order: **Bybit → Kraken → Binance.US → Binance.com**.  
+Response field `source_ohlcv` shows which source won.
+
+Optional override (binance-style klines URL only): `KRONOS_OHLCV_URL`.
+
 ## Ops
 
 1. Deploy Railway from `apps/kronos-api` (Dockerfile).
-2. Confirm `GET /health` → `model_loaded: true`.
+2. Confirm `GET /health` → process up (`model_loaded` may be false until first forecast).
 3. Set Vercel env; redeploy vending machine.
 4. Unpaid: `GET …/api/v/kronos-forecast` → 402.
 5. portalv2 `/test` paid settle once → Bazaar indexes after ≤10 min.
