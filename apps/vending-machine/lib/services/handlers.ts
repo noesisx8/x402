@@ -378,8 +378,9 @@ export const kronosForecastHandler: VendingHandler = async (_req, query) => {
   const { callKronosForecast } = await import("@/lib/services/kronos-client");
   const symbol = String(query.symbol ?? "BTCUSDT").trim().toUpperCase();
   const interval = String(query.interval ?? "1h").trim();
-  const lookback = Number(query.lookback ?? 128) || 128;
-  const pred_len = Number(query.pred_len ?? 12) || 12;
+  // Defaults tuned for Vercel 60s path after model is warm on Railway
+  const lookback = Number(query.lookback ?? 64) || 64;
+  const pred_len = Number(query.pred_len ?? 6) || 6;
   const model = String(query.model ?? "mini").trim().toLowerCase();
   return callKronosForecast({ symbol, interval, lookback, pred_len, model });
 };

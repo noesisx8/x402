@@ -8,8 +8,11 @@ const SYMBOL_ALLOW = new Set(["BTCUSDT", "ETHUSDT"]);
 const INTERVAL_ALLOW = new Set(["15m", "1h", "4h"]);
 const MAX_LOOKBACK = 256;
 const MAX_PRED_LEN = 24;
-/** Leave headroom under typical Vercel serverless limits. */
-const CLIENT_TIMEOUT_MS = 25_000;
+/**
+ * Must stay under route maxDuration (60s on Pro). Cold Kronos loads can exceed 25s —
+ * keep model warm on Railway (background warm + /v1/warmup) so paid calls finish sooner.
+ */
+const CLIENT_TIMEOUT_MS = Number(process.env.KRONOS_CLIENT_TIMEOUT_MS ?? "55000");
 
 export type KronosForecastInput = {
   symbol: string;

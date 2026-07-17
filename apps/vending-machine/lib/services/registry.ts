@@ -460,13 +460,13 @@ export const VENDING_SERVICES: VendingService[] = [
     queryParams: [
       { name: "symbol", required: false, description: "BTCUSDT (default) or ETHUSDT" },
       { name: "interval", required: false, description: "15m | 1h (default) | 4h" },
-      { name: "lookback", required: false, description: "History bars 16–256, default 128" },
-      { name: "pred_len", required: false, description: "Forecast bars 1–24, default 12" },
+      { name: "lookback", required: false, description: "History bars 16–256, default 64 (faster)" },
+      { name: "pred_len", required: false, description: "Forecast bars 1–24, default 6 (faster)" },
       { name: "model", required: false, description: "mini only in v1" },
     ],
     handler: kronosForecastHandler,
     discovery: {
-      exampleQuery: { symbol: "BTCUSDT", interval: "1h", lookback: "128", pred_len: "12" },
+      exampleQuery: { symbol: "BTCUSDT", interval: "1h", lookback: "64", pred_len: "6" },
       exampleOutput: {
         service: "kronos-forecast",
         ok: true,

@@ -10,6 +10,10 @@ import {
 } from "@/lib/analytics";
 import { checkRateLimit, clientIpFromHeaders } from "@/lib/rate-limit";
 
+/** Kronos + multi-leg bundles need headroom; Pro default allows up to 60s. */
+export const maxDuration = 60;
+export const runtime = "nodejs";
+
 type Wrapped = (request: NextRequest) => Promise<NextResponse>;
 
 const wrappedHandlers: Record<string, Wrapped> = {};
