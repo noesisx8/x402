@@ -9,10 +9,18 @@ import {
 } from "@/lib/x402/paid-fetch-client";
 
 const SERVICES = [
+  // Bundles / premium first (go-to + Kronos)
+  { slug: "bundle-outbound", qs: "email=test@gmail.com&ip=8.8.8.8&url=https://example.com" },
+  { slug: "bundle-infra", qs: "host=example.com" },
+  { slug: "domain-intel", qs: "host=example.com" },
+  {
+    slug: "kronos-forecast",
+    qs: "symbol=BTCUSDT&interval=1h&lookback=64&pred_len=6",
+  },
+  // Atoms
   { slug: "fetch-text", qs: "url=https://example.com" },
   { slug: "http-get", qs: "url=https://httpbin.org/json" },
   { slug: "dns-records", qs: "host=example.com&types=A,MX,TXT" },
-  { slug: "domain-intel", qs: "host=example.com" },
   { slug: "base-balance", qs: "address=0xc648116b5deBE4AF7D78838AA468d07e0A9Ab697" },
   { slug: "crypto-prices", qs: "ids=bitcoin,ethereum" },
   { slug: "email-validate", qs: "email=test@gmail.com" },
@@ -22,7 +30,6 @@ const SERVICES = [
   { slug: "whois-lite", qs: "domain=example.com" },
   { slug: "dns-resolve", qs: "host=example.com" },
   { slug: "http-head", qs: "url=https://example.com" },
-  { slug: "bundle-infra", qs: "host=example.com" },
   { slug: "qr-code", qs: "data=https://x402.org" },
   { slug: "weather", qs: "city=Berlin" },
   { slug: "ip-lookup", qs: "ip=8.8.8.8" },
