@@ -19,6 +19,10 @@ function trustAssetUrl(kind: "badge" | "card", resourceUrl: string): string {
   return `https://x402.fuchss.app/${kind}.svg?resource=${encoded}`;
 }
 
+function markdownImage(label: string, imageUrl: string): string {
+  return `![${label}](${imageUrl})`;
+}
+
 function categoryLabel(service: VendingService): string {
   if (service.category === "bundle") return "Bundle";
   if (service.category === "premium") return "Premium";
@@ -99,13 +103,22 @@ export function EndpointCard({ service, baseUrl, featured = false }: EndpointCar
         </div>
 
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-3">
-          <p className="mb-2 text-[11px] uppercase tracking-wide text-zinc-500">Live trust card</p>
-          <img
-            src={trustCard}
-            alt={`x402 trust card for ${resourceUrl}`}
-            loading="lazy"
-            className="w-full rounded-xl bg-zinc-950"
-          />
+          <p className="mb-2 text-[11px] uppercase tracking-wide text-zinc-500">
+            Current x402 trust grade + key stats
+          </p>
+          <a
+            href={trustCard}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={`Open x402 trust card for ${service.slug}`}
+          >
+            <img
+              src={trustCard}
+              alt={`x402 trust card for ${resourceUrl}`}
+              loading="lazy"
+              className="w-full rounded-xl bg-zinc-950"
+            />
+          </a>
         </div>
       </div>
     </article>
@@ -113,35 +126,57 @@ export function EndpointCard({ service, baseUrl, featured = false }: EndpointCar
 }
 
 export function DirectoryMaintainerSnippet({ baseUrl }: { baseUrl: string }) {
-  const sampleResource = `${baseUrl.replace(/\/$/, "")}/api/v/redirect-trace`;
+  const sampleResource = `${baseUrl.replace(/\/$/, "")}/api/v/dns-records`;
   const badge = trustAssetUrl("badge", sampleResource);
   const card = trustAssetUrl("card", sampleResource);
+  const cardMarkdown = markdownImage("x402 trust card: grade and key stats", card);
+  const badgeHtml = `<img src="${badge}" alt="x402 trust grade">`;
 
   return (
     <section className="mt-12 rounded-2xl border border-zinc-800 bg-zinc-950/70 p-5 shadow-2xl shadow-black/20">
-      <div className="grid gap-5 md:grid-cols-[1fr_220px] md:items-center">
+      <div className="grid gap-5 md:grid-cols-[1fr_260px] md:items-center">
         <div>
           <p className="text-sm uppercase tracking-widest text-emerald-400">
             For directory maintainers
           </p>
           <h2 className="mt-2 text-2xl font-semibold text-zinc-50">
-            Drop in the endpoint URL. No lookup required.
+            Show the current grade and key stats from x402.fuchss.app.
           </h2>
           <p className="mt-2 text-sm leading-6 text-zinc-400">
-            Listing lots of endpoints? Use the resource URL you already have in the badge or card
-            template. No ID, no API call; the grade auto-updates as the score refreshes.
+            Listing lots of endpoints? Skip the per-endpoint lookup: drop the resource URL you
+            already have into the badge or card template. No ID, no API call. The card image is
+            supplied by x402.fuchss.app and auto-updates as the score refreshes.
           </p>
-          <div className="mt-4 space-y-2 rounded-xl border border-zinc-800 bg-black/30 p-3 font-mono text-[11px] text-zinc-400">
-            <p className="break-all">&lt;img src=&quot;{badge}&quot; alt=&quot;x402 trust grade&quot;&gt;</p>
-            <p className="break-all">{card}</p>
+          <p className="mt-3 text-xs text-zinc-500">
+            Example endpoint page:{" "}
+            <a className="text-emerald-400 underline" href="https://x402.fuchss.app/endpoint/85243">
+              x402.fuchss.app/endpoint/85243
+            </a>{" "}
+            for <code className="text-zinc-300">{sampleResource}</code>.
+          </p>
+          <div className="mt-4 space-y-3 rounded-xl border border-zinc-800 bg-black/30 p-3 font-mono text-[11px] text-zinc-400">
+            <div>
+              <p className="mb-1 font-sans text-[11px] uppercase tracking-wide text-zinc-500">
+                Badge HTML
+              </p>
+              <p className="break-all">{badgeHtml}</p>
+            </div>
+            <div>
+              <p className="mb-1 font-sans text-[11px] uppercase tracking-wide text-zinc-500">
+                Card Markdown (grade + key stats)
+              </p>
+              <p className="break-all">{cardMarkdown}</p>
+            </div>
           </div>
         </div>
-        <img
-          src={card}
-          alt="x402 trust card example for redirect-trace"
-          loading="lazy"
-          className="w-full rounded-xl border border-zinc-800 bg-zinc-900"
-        />
+        <a href={card} target="_blank" rel="noreferrer" aria-label="Open x402 trust card example">
+          <img
+            src={card}
+            alt="x402 trust card example for dns-records"
+            loading="lazy"
+            className="w-full rounded-xl border border-zinc-800 bg-zinc-900"
+          />
+        </a>
       </div>
     </section>
   );
