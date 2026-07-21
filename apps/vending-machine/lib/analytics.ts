@@ -7,6 +7,8 @@
 export type AnalyticsEvent =
   | "402_issued"
   | "payment_present"
+  | "resource_server_ready"
+  | "payment_pipeline_complete"
   | "verify_context"
   | "handler_ok"
   | "handler_fail"
@@ -23,6 +25,12 @@ export type CallLog = {
   /** Truncated payer hint when known from payment header (never full secrets). */
   payerHint?: string;
   userAgentHint?: string;
+  /** Correlates payment_present, handler_ok, and settlement_response for one invocation. */
+  requestId?: string;
+  /** Handler-only duration measured inside the protected route. */
+  handlerMs?: number;
+  /** Total paid-flow time minus handler time; approximates verify + settle + SDK overhead. */
+  paymentOverheadMs?: number;
   error?: string;
   at: string;
 };

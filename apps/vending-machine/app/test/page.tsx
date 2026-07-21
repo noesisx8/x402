@@ -16,6 +16,32 @@ type TestService = {
   qs: string;
 };
 
+function decodePaymentRequiredHeader(header: string | null): string | null {
+  if (!header) return null;
+  try {
+    const normalized = header.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    const decoded = JSON.parse(atob(padded)) as {
+      accepts?: Array<{ network?: string; amount?: string; payTo?: string; description?: string }>;
+      resource?: { url?: string; description?: string };
+    };
+    const accept = decoded.accepts?.[0];
+    return JSON.stringify(
+      {
+        resource: decoded.resource?.url,
+        network: accept?.network,
+        amount: accept?.amount,
+        payTo: accept?.payTo ? `${accept.payTo.slice(0, 6)}…${accept.payTo.slice(-4)}` : undefined,
+        description: accept?.description ?? decoded.resource?.description,
+      },
+      null,
+      2,
+    );
+  } catch {
+    return "Payment-Required header was present but could not be decoded by the browser.";
+  }
+}
+
 export default function TestPage() {
   const [services, setServices] = useState<TestService[]>([]);
   const [slug, setSlug] = useState("");
@@ -44,8 +70,10 @@ export default function TestPage() {
         const list = j.services ?? [];
         setServices(list);
         if (list.length > 0) {
-          setSlug(list[0].slug);
-          setQs(list[0].qs ?? "");
+          const requestedSlug = new URLSearchParams(window.location.search).get("slug");
+          const pick = list.find((s) => s.slug === requestedSlug) ?? list[0];
+          setSlug(pick.slug);
+          setQs(pick.qs ?? "");
         }
       })
       .catch((e) => {
@@ -66,9 +94,16 @@ export default function TestPage() {
     setBusy(true);
     setOut("Loading…");
     try {
+      const started = performance.now();
       const res = await fetch(url, { cache: "no-store" });
+      const elapsed = Math.round(performance.now() - started);
+      const paymentRequired =
+        res.headers.get("payment-required") ?? res.headers.get("Payment-Required");
+      const decoded = decodePaymentRequiredHeader(paymentRequired);
       const text = await res.text();
-      setOut(`HTTP ${res.status}\n${text}`);
+      setOut(
+        `HTTP ${res.status} (${elapsed}ms)\n${text}${decoded ? `\n\nPayment requirements:\n${decoded}` : ""}`,
+      );
     } catch (e) {
       setOut(String(e));
     } finally {
@@ -81,9 +116,11 @@ export default function TestPage() {
     setBusy(true);
     setOut("Connecting wallet…");
     try {
+      const started = performance.now();
       const addr = await connectBrowserWallet(config);
+      const elapsed = Math.round(performance.now() - started);
       setAddress(addr);
-      setOut(`Connected: ${addr}\nNetwork: ${config.chainName}\n${config.hint}`);
+      setOut(`Connected: ${addr}\nNetwork: ${config.chainName}\n${config.hint}\nWallet connect: ${elapsed}ms`);
     } catch (e) {
       setOut(String(e));
     } finally {
@@ -100,7 +137,9 @@ export default function TestPage() {
     setBusy(true);
     setOut("402 → sign in wallet → retry…");
     try {
+      const started = performance.now();
       const res = await paidGet(url, address, config);
+      const elapsed = Math.round(performance.now() - started);
       const paymentResponse =
         res.headers.get("payment-response") ?? res.headers.get("PAYMENT-RESPONSE");
       const text = await res.text();
@@ -111,7 +150,7 @@ export default function TestPage() {
         extra =
           "\n\nStill 402: not settled. Use Pay & GET (not the unpaid button), approve USDC in wallet, keep query string unchanged.";
       }
-      setOut(`HTTP ${res.status}\n${text}${extra}`);
+      setOut(`HTTP ${res.status} (${elapsed}ms paid flow)\n${text}${extra}`);
     } catch (e) {
       setOut(`Paid call failed:\n${String(e)}`);
     } finally {

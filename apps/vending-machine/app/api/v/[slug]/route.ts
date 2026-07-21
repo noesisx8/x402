@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withX402 } from "@x402/next";
 import { getResourceServer } from "@/lib/x402/resource-server";
+import { getPaywallProvider, paywallConfig } from "@/lib/x402/paywall";
 import { SERVICES_BY_SLUG } from "@/lib/services/registry";
 import { serviceRouteConfig } from "@/lib/services/types";
 import {
@@ -17,6 +18,8 @@ export const runtime = "nodejs";
 type Wrapped = (request: NextRequest) => Promise<NextResponse>;
 
 const wrappedHandlers: Record<string, Wrapped> = {};
+const requestIds = new WeakMap<NextRequest, string>();
+const handlerDurations = new WeakMap<NextRequest, number>();
 
 function paymentHeader(request: NextRequest): string | null {
   return (
@@ -24,6 +27,15 @@ function paymentHeader(request: NextRequest): string | null {
     request.headers.get("PAYMENT-SIGNATURE") ??
     request.headers.get("x-payment") ??
     request.headers.get("X-PAYMENT")
+  );
+}
+
+function requestIdFor(request: NextRequest): string {
+  return (
+    requestIds.get(request) ??
+    request.headers.get("x-vercel-id") ??
+    request.headers.get("x-request-id") ??
+    crypto.randomUUID()
   );
 }
 
@@ -35,6 +47,7 @@ async function ensureWrapped(slug: string): Promise<Wrapped | null> {
   const server = await getResourceServer();
   const inner = async (request: NextRequest) => {
     const started = Date.now();
+    const requestId = requestIdFor(request);
     const url = new URL(request.url);
     const query: Record<string, string> = {};
     url.searchParams.forEach((v, k) => {
@@ -42,20 +55,26 @@ async function ensureWrapped(slug: string): Promise<Wrapped | null> {
     });
     try {
       const body = await svc.handler(request, query);
+      const handlerMs = Date.now() - started;
+      handlerDurations.set(request, handlerMs);
       await logCall({
         event: "handler_ok",
         slug,
-        ms: Date.now() - started,
+        ms: handlerMs,
         status: 200,
+        requestId,
       });
       return NextResponse.json({ service: slug, ok: true, ...body });
     } catch (e) {
+      const handlerMs = Date.now() - started;
+      handlerDurations.set(request, handlerMs);
       await logCall({
         event: "handler_fail",
         slug,
-        ms: Date.now() - started,
+        ms: handlerMs,
         status: 400,
         error: String(e).slice(0, 200),
+        requestId,
       });
       // status >= 400 → withX402 skips settle (idempotent: no charge on bad input)
       return NextResponse.json(
@@ -65,7 +84,13 @@ async function ensureWrapped(slug: string): Promise<Wrapped | null> {
     }
   };
 
-  wrappedHandlers[slug] = withX402(inner, serviceRouteConfig(svc), server) as unknown as Wrapped;
+  wrappedHandlers[slug] = withX402(
+    inner,
+    serviceRouteConfig(svc),
+    server,
+    paywallConfig(`/api/v/${slug}`),
+    getPaywallProvider(),
+  ) as unknown as Wrapped;
   return wrappedHandlers[slug];
 }
 
@@ -77,6 +102,8 @@ async function ensureWrapped(slug: string): Promise<Wrapped | null> {
  */
 export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: string }> }) {
   const started = Date.now();
+  const requestId = requestIdFor(request);
+  requestIds.set(request, requestId);
   const { slug } = await ctx.params;
   const ua = userAgentHint(request.headers.get("user-agent"));
   const payHdr = paymentHeader(request);
@@ -98,6 +125,7 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
         status: 429,
         ms: Date.now() - started,
         userAgentHint: ua,
+        requestId,
       });
       return NextResponse.json(
         { error: "rate_limited", retry_after_sec: rl.retryAfterSec },
@@ -116,12 +144,24 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
       slug,
       userAgentHint: ua,
       payerHint,
+      requestId,
     });
   }
 
+  const prepareStarted = Date.now();
   const handler = await ensureWrapped(slug);
+  const resourceInitMs = Date.now() - prepareStarted;
   if (!handler) {
     return NextResponse.json({ error: "unknown_service", slug }, { status: 404 });
+  }
+
+  if (resourceInitMs > 5 || hasPayment) {
+    await logCall({
+      event: "resource_server_ready",
+      slug,
+      ms: resourceInitMs,
+      requestId,
+    });
   }
 
   try {
@@ -135,8 +175,12 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
         status: 402,
         ms,
         userAgentHint: ua,
+        requestId,
       });
     } else if (res.status === 200) {
+      const handlerMs = handlerDurations.get(request);
+      const paymentOverheadMs =
+        hasPayment && handlerMs !== undefined ? Math.max(0, ms - handlerMs) : undefined;
       await logCall({
         event: "200_delivered",
         slug,
@@ -144,15 +188,21 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
         ms,
         userAgentHint: ua,
         payerHint,
+        requestId,
+        handlerMs,
+        paymentOverheadMs,
       });
       // Settlement is performed inside withX402 after handler success
       if (hasPayment) {
         await logCall({
-          event: "settlement_response",
+          event: "payment_pipeline_complete",
           slug,
           status: 200,
           ms,
           payerHint,
+          requestId,
+          handlerMs,
+          paymentOverheadMs,
         });
       }
     } else if (res.status >= 500) {
@@ -163,6 +213,7 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
         ms,
         userAgentHint: ua,
         error: `upstream_status_${res.status}`,
+        requestId,
       });
     }
 
@@ -176,6 +227,7 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
       userAgentHint: ua,
       payerHint,
       error: String(e).slice(0, 200),
+      requestId,
     });
     return NextResponse.json(
       { error: "facilitator_or_server_error", message: "payment pipeline failed" },
