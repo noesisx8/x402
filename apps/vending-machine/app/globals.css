@@ -2,6 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  color-scheme: dark;
+}
+
 body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(16, 185, 129, 0.10), transparent 32rem),
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.08), transparent 28rem),
+    #09090b;
   font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+::selection {
+  background: rgba(52, 211, 153, 0.35);
 }
