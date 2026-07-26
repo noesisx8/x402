@@ -82,7 +82,7 @@
 | 3.2 | **CDP Bazaar** | `bazaarResourceServerExtension` + `declareDiscoveryExtension()` per route | **Coded** — index after post-deploy paid settle; see `docs/DISTRIBUTION.md` |
 | 3.3 | **awesome-x402** | PR with one-line description + production URL | **PR #778** open |
 | 3.4 | **Agentic.Market / Agent.market** | Appear via Bazaar settle traffic + discovery URLs | **Playbook in DISTRIBUTION.md** |
-| 3.5 | **x402scan / Messari-style indexes** | Monitor; submit when forms exist | SEO for agents |
+| 3.5 | **x402scan / Messari-style indexes** + **x402-trust (fuchss)** | Monitor volume indexes; track trust grades at [x402.fuchss.app](https://x402.fuchss.app) | SEO + agent reputation — playbook `docs/X402_TRUST_OPS.md` |
 | 3.6 | **MCP server** | Expose top slugs as tools pointing at same URLs | Claude / Cursor agents |
 | 3.7 | **Branding** | Name, logo, `description` on every route; consistent `PUBLIC_BASE_URL` in discovery | Trust |
 

@@ -33,6 +33,8 @@ Sync with **git pull / push**, not full `node_modules` copies.
 | Pay-to | `0xc648116b5deBE4AF7D78838AA468d07e0A9Ab697` |
 | Facilitator | CDP `https://api.cdp.coinbase.com/platform/v2/x402` |
 
+Trust grades (fuchss) and Bazaar coverage map: **`docs/X402_TRUST_OPS.md`** (updated 2026-07-17).
+
 ## Checklist
 
 - [x] 0.1 Production env on Base + CDP

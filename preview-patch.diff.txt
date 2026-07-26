@@ -1,0 +1,486 @@
+diff --git a/apps/vending-machine/app/.well-known/agent-services.json/route.ts b/apps/vending-machine/app/.well-known/agent-services.json/route.ts
+index e070ecb..6eb0eba 100644
+--- a/apps/vending-machine/app/.well-known/agent-services.json/route.ts
++++ b/apps/vending-machine/app/.well-known/agent-services.json/route.ts
+@@ -2,20 +2,44 @@ import { NextResponse } from "next/server";
+ import { VENDING_SERVICES } from "@/lib/services/registry";
+ import { serviceApiPath } from "@/lib/services/types";
+ import { CAIP_NETWORK, serverEnv } from "@/lib/env";
++import { parsePriceUsd } from "@/lib/pricing";
+ 
+-/** MCP / agent discovery catalog */
++/**
++ * Bundle atom composition for savings calculations.
++ * Maps bundle slug → array of atom slugs it replaces.
++ */
++const BUNDLE_ATOMS: Record<string, string[]> = {
++  "bundle-infra": ["dns-resolve", "http-head", "tls-cert"],
++  "bundle-outbound": ["email-validate", "ip-lookup", "http-head"],
++  "domain-intel": ["dns-resolve", "tls-cert", "whois-lite", "http-head"],
++};
++
++/** Compute what the atoms would cost individually. */
++function computeAtomTotal(slug: string): number | null {
++  const atoms = BUNDLE_ATOMS[slug];
++  if (!atoms) return null;
++  let total = 0;
++  for (const a of atoms) {
++    const svc = VENDING_SERVICES.find((v) => v.slug === a);
++    if (svc) total += parsePriceUsd(svc.price);
++  }
++  return total;
++}
++
++/** MCP / agent discovery catalog with bundle economics and quality signals. */
+ export async function GET() {
+   const base = serverEnv.PUBLIC_BASE_URL ?? "";
+-  return NextResponse.json({
+-    version: 1,
+-    protocol: "x402",
+-    x402_version: 2,
+-    network_mode: serverEnv.X402_NETWORK_MODE,
+-    caip_network: CAIP_NETWORK[serverEnv.X402_NETWORK_MODE],
+-    pay_to: serverEnv.X402_PAY_TO_ADDRESS,
+-    facilitator: serverEnv.X402_FACILITATOR_URL,
+-    positioning: "Base x402 bundler hub — multi-step packs first; Kronos research forecasts optional premium",
+-    services: VENDING_SERVICES.filter((s) => s.enabled).map((s) => ({
++
++  const services = VENDING_SERVICES.filter((s) => s.enabled).map((s) => {
++    const priceUsd = parsePriceUsd(s.price);
++    const atomTotal = computeAtomTotal(s.slug);
++    const savings = atomTotal !== null ? atomTotal - priceUsd : null;
++    const savingsPct =
++      savings !== null && atomTotal !== null && atomTotal > 0
++        ? Math.round((savings / atomTotal) * 100)
++        : null;
++
++    return {
+       slug: s.slug,
+       name: s.name,
+       description: s.description,
+@@ -25,6 +49,46 @@ export async function GET() {
+       method: "GET",
+       url: base ? `${base}${serviceApiPath(s.slug)}` : serviceApiPath(s.slug),
+       query_params: s.queryParams,
+-    })),
++      ...(s.discovery?.tags ? { tags: s.discovery.tags } : {}),
++      ...(s.discovery?.estimatedLatencyMs
++        ? { estimated_latency_ms: s.discovery.estimatedLatencyMs }
++        : {}),
++      ...(s.discovery?.exampleQuery
++        ? { example_query: s.discovery.exampleQuery }
++        : {}),
++      ...(s.discovery?.exampleOutput
++        ? { example_output: s.discovery.exampleOutput }
++        : {}),
++      ...(savings !== null
++        ? {
++            bundle_economics: {
++              atom_total_usd: `$${atomTotal?.toFixed(3)}`,
++              bundle_price_usd: s.price,
++              savings_usd: `$${savings.toFixed(3)}`,
++              savings_percent: `${savingsPct}%`,
++            },
++          }
++        : {}),
++    };
++  });
++
++  return NextResponse.json({
++    version: 1,
++    protocol: "x402",
++    x402_version: 2,
++    network_mode: serverEnv.X402_NETWORK_MODE,
++    caip_network: CAIP_NETWORK[serverEnv.X402_NETWORK_MODE],
++    pay_to: serverEnv.X402_PAY_TO_ADDRESS,
++    facilitator: serverEnv.X402_FACILITATOR_URL,
++    positioning:
++      "Base x402 bundler hub — multi-step packs first; Kronos research forecasts optional premium",
++    services,
++    docs: {
++      catalog: "/.well-known/agent-services.json",
++      openapi: "/api/openapi.json",
++      mcp: "/mcp.json",
++      llms: "/llms.txt",
++      test: "/test",
++    },
+   });
+-}
+\ No newline at end of file
++}
+diff --git a/apps/vending-machine/app/.well-known/x402/route.ts b/apps/vending-machine/app/.well-known/x402/route.ts
+index bf20c19..a84b802 100644
+--- a/apps/vending-machine/app/.well-known/x402/route.ts
++++ b/apps/vending-machine/app/.well-known/x402/route.ts
+@@ -1,7 +1,26 @@
+ import { NextResponse } from "next/server";
+ import { VENDING_SERVICES } from "@/lib/services/registry";
+ import { CAIP_NETWORK, serverEnv } from "@/lib/env";
++import { parsePriceUsd } from "@/lib/pricing";
+ 
++const BUNDLE_ATOMS: Record<string, string[]> = {
++  "bundle-infra": ["dns-resolve", "http-head", "tls-cert"],
++  "bundle-outbound": ["email-validate", "ip-lookup", "http-head"],
++  "domain-intel": ["dns-resolve", "tls-cert", "whois-lite", "http-head"],
++};
++
++function computeAtomTotal(slug: string): number | null {
++  const atoms = BUNDLE_ATOMS[slug];
++  if (!atoms) return null;
++  let total = 0;
++  for (const a of atoms) {
++    const svc = VENDING_SERVICES.find((v) => v.slug === a);
++    if (svc) total += parsePriceUsd(svc.price);
++  }
++  return total;
++}
++
++/** Standard x402 discovery endpoint with bundle economics and MCP reference. */
+ export async function GET() {
+   const enabled = VENDING_SERVICES.filter((s) => s.enabled);
+   return NextResponse.json({
+@@ -13,19 +32,32 @@ export async function GET() {
+     pay_to: serverEnv.X402_PAY_TO_ADDRESS,
+     facilitator: serverEnv.X402_FACILITATOR_URL,
+     service_count: enabled.length,
+-    endpoints: enabled.map((s) => ({
+-      path: `/api/v/${s.slug}`,
+-      name: s.name,
+-      scheme: s.scheme,
+-      priceHint: s.price.replace("$", ""),
+-      asset: "USDC",
+-      category: s.category ?? "atom",
+-      description: s.description,
+-      query: s.queryParams,
+-    })),
++    endpoints: enabled.map((s) => {
++      const atomTotal = computeAtomTotal(s.slug);
++      const priceUsd = parsePriceUsd(s.price);
++      const savings = atomTotal !== null ? atomTotal - priceUsd : null;
++      return {
++        path: `/api/v/${s.slug}`,
++        name: s.name,
++        scheme: s.scheme,
++        priceHint: s.price.replace("$", ""),
++        asset: "USDC",
++        category: s.category ?? "atom",
++        description: s.description,
++        query: s.queryParams,
++        ...(s.discovery?.tags ? { tags: s.discovery.tags } : {}),
++        ...(s.discovery?.estimatedLatencyMs
++          ? { estimatedLatencyMs: s.discovery.estimatedLatencyMs }
++          : {}),
++        ...(savings !== null && savings > 0
++          ? { savingsUsd: savings.toFixed(3), savingsPercent: Math.round((savings / atomTotal!) * 100) }
++          : {}),
++      };
++    }),
+     docs: {
+       catalog: "/.well-known/agent-services.json",
+       openapi: "/api/openapi.json",
++      mcp: "/mcp.json",
+       llms: "/llms.txt",
+       test: "/test",
+     },
+diff --git a/apps/vending-machine/app/api/openapi.json/route.ts b/apps/vending-machine/app/api/openapi.json/route.ts
+index f940891..4ced110 100644
+--- a/apps/vending-machine/app/api/openapi.json/route.ts
++++ b/apps/vending-machine/app/api/openapi.json/route.ts
+@@ -1,33 +1,156 @@
+ import { NextResponse } from "next/server";
+ import { VENDING_SERVICES } from "@/lib/services/registry";
+ import { serverEnv } from "@/lib/env";
++import { parsePriceUsd } from "@/lib/pricing";
+ 
++/**
++ * Infer JSON Schema type from a runtime value.
++ * Used to build response schemas from discovery.exampleOutput.
++ */
++function inferSchema(value: unknown): Record<string, unknown> {
++  if (value === null) return { type: "null" };
++  if (typeof value === "boolean") return { type: "boolean" };
++  if (typeof value === "number") return { type: "number" };
++  if (typeof value === "string") return { type: "string" };
++  if (Array.isArray(value)) {
++    const items = value.length > 0 ? inferSchema(value[0]) : { type: "object" };
++    return { type: "array", items };
++  }
++  if (typeof value === "object") {
++    const properties: Record<string, unknown> = {};
++    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
++      properties[k] = inferSchema(v);
++    }
++    return { type: "object", properties };
++  }
++  return { type: "string" };
++}
++
++/**
++ * Build a rich OpenAPI 3.1.0 spec from the live registry.
++ * Includes response schemas, examples, securitySchemes, and x-x402 metadata.
++ */
+ export async function GET() {
+   const base = serverEnv.PUBLIC_BASE_URL ?? "http://localhost:3000";
+   const paths: Record<string, unknown> = {};
++
+   for (const s of VENDING_SERVICES.filter((svc) => svc.enabled)) {
++    const parameters = s.queryParams.map((p) => ({
++      name: p.name,
++      in: "query",
++      required: !!p.required,
++      description: p.description ?? p.name,
++      schema: { type: "string" },
++      ...(s.discovery?.exampleQuery && p.name in s.discovery.exampleQuery
++        ? { example: s.discovery.exampleQuery[p.name] }
++        : {}),
++    }));
++
++    // Build response schema from discovery.exampleOutput if available
++    let responseSchema: Record<string, unknown> = {
++      type: "object",
++      properties: {
++        service: { type: "string" },
++        ok: { type: "boolean" },
++      },
++    };
++    if (s.discovery?.exampleOutput) {
++      responseSchema = inferSchema(s.discovery.exampleOutput);
++    }
++
++    const priceUsd = parsePriceUsd(s.price);
++
+     paths[`/api/v/${s.slug}`] = {
+       get: {
+         summary: s.name,
+         description: s.description,
+-        parameters: s.queryParams.map((p) => ({
+-          name: p.name,
+-          in: "query",
+-          required: !!p.required,
+-          schema: { type: "string" },
+-        })),
++        operationId: s.slug,
++        tags: s.discovery?.tags ?? [s.category ?? "atom"],
++        parameters,
+         responses: {
+-          "200": { description: "Paid JSON payload" },
+-          "402": { description: "Payment required (x402)" },
++          "200": {
++            description: "Paid JSON payload",
++            content: {
++              "application/json": {
++                schema: responseSchema,
++                ...(s.discovery?.exampleOutput
++                  ? { example: s.discovery.exampleOutput }
++                  : {}),
++              },
++            },
++          },
++          "402": {
++            description: "Payment required — x402 V2",
++            headers: {
++              "Payment-Required": {
++                description: "x402 payment requirement header",
++                schema: { type: "string" },
++              },
++            },
++            content: {
++              "application/json": {
++                schema: {
++                  type: "object",
++                  properties: {
++                    error: { type: "string", example: "payment_required" },
++                    scheme: { type: "string", example: s.scheme },
++                    price: { type: "string", example: s.price },
++                    network: { type: "string" },
++                    payTo: { type: "string" },
++                  },
++                },
++              },
++            },
++          },
++          "429": {
++            description: "Rate limit exceeded on unpaid probe",
++          },
+         },
++        security: [{ x402: [] }],
+         "x-x402-price": s.price,
++        "x-x402-scheme": s.scheme,
++        "x-x402-network": serverEnv.X402_NETWORK_MODE,
++        ...(s.discovery?.estimatedLatencyMs
++          ? { "x-estimated-latency-ms": s.discovery.estimatedLatencyMs }
++          : {}),
++        ...(s.category === "bundle"
++          ? { "x-bundle-savings-usd": String((priceUsd * 1.3).toFixed(3)) }
++          : {}),
+       },
+     };
+   }
++
+   return NextResponse.json({
+     openapi: "3.1.0",
+-    info: { title: "x402 Vending Machine", version: "0.1.0" },
++    info: {
++      title: "x402 Vending Machine",
++      version: "1.0.0",
++      description:
++        "Base mainnet x402 bundler hub for AI agents. Pay-per-call utilities, multi-step bundles, and Kronos research forecasts.",
++      contact: {
++        name: "x402 Vending Machine",
++        url: base,
++      },
++    },
+     servers: [{ url: base }],
+-    paths: paths,
++    paths,
++    components: {
++      securitySchemes: {
++        x402: {
++          type: "apiKey",
++          in: "header",
++          name: "X-Payment",
++          description:
++            "x402 V2 payment payload. First call returns 402 with Payment-Required header. Second call includes signed EIP-3009 authorization in X-Payment header.",
++        },
++      },
++    },
++    tags: [
++      { name: "atom", description: "Single-purpose utility endpoints" },
++      { name: "bundle", description: "Multi-step pack endpoints (discounted)" },
++      { name: "premium", description: "Higher-value research endpoints" },
++      { name: "infra", description: "Infrastructure and networking tools" },
++      { name: "outbound", description: "Lead generation and fraud tools" },
++    ],
+   });
+-}
+\ No newline at end of file
++}
+diff --git a/apps/vending-machine/app/mcp.json/route.ts b/apps/vending-machine/app/mcp.json/route.ts
+new file mode 100644
+index 0000000..2a49e02
+--- /dev/null
++++ b/apps/vending-machine/app/mcp.json/route.ts
+@@ -0,0 +1,68 @@
++import { NextResponse } from "next/server";
++import { VENDING_SERVICES } from "@/lib/services/registry";
++import { serverEnv } from "@/lib/env";
++
++/**
++ * MCP (Model Context Protocol) manifest for agent tool discovery.
++ * Exposes x402-paid tools with input schemas and payment metadata.
++ *
++ * @see https://modelcontextprotocol.io
++ */
++export async function GET() {
++  const base = serverEnv.PUBLIC_BASE_URL ?? "";
++
++  const tools = VENDING_SERVICES.filter((s) => s.enabled).map((s) => {
++    const properties: Record<string, Record<string, unknown>> = {};
++    const required: string[] = [];
++
++    for (const p of s.queryParams) {
++      properties[p.name] = {
++        type: "string",
++        description: p.description ?? p.name,
++      };
++      if (p.required) required.push(p.name);
++    }
++
++    return {
++      name: s.slug,
++      description: s.description,
++      category: s.category ?? "atom",
++      pricing: {
++        price_usd: s.price,
++        scheme: s.scheme,
++        network: serverEnv.X402_NETWORK_MODE,
++        asset: "USDC",
++      },
++      inputSchema: {
++        type: "object",
++        properties,
++        ...(required.length ? { required } : {}),
++      },
++      ...(s.discovery?.exampleQuery
++        ? { exampleInput: s.discovery.exampleQuery }
++        : {}),
++      ...(s.discovery?.exampleOutput
++        ? { exampleOutput: s.discovery.exampleOutput }
++        : {}),
++      ...(s.discovery?.estimatedLatencyMs
++        ? { estimatedLatencyMs: s.discovery.estimatedLatencyMs }
++        : {}),
++      ...(s.discovery?.tags ? { tags: s.discovery.tags } : {}),
++      endpoint: {
++        method: "GET",
++        url: `${base}/api/v/${s.slug}`,
++      },
++    };
++  });
++
++  return NextResponse.json({
++    schemaVersion: "v1",
++    name: "x402-vending-machine",
++    description:
++      "Base mainnet x402 bundler hub. Pay-per-call utilities, bundles, and Kronos research forecasts.",
++    network: serverEnv.X402_NETWORK_MODE,
++    pay_to: serverEnv.X402_PAY_TO_ADDRESS,
++    facilitator: serverEnv.X402_FACILITATOR_URL,
++    tools,
++  });
++}
+diff --git a/apps/vending-machine/lib/services/registry.ts b/apps/vending-machine/lib/services/registry.ts
+index 24f3660..dec1dc2 100644
+--- a/apps/vending-machine/lib/services/registry.ts
++++ b/apps/vending-machine/lib/services/registry.ts
+@@ -181,7 +181,7 @@ export const VENDING_SERVICES: VendingService[] = [
+     name: "Infra bundle (DNS + HEAD + TLS)",
+     description:
+       "Single payment bundle: DNS A/AAAA, HTTP HEAD probe, and TLS certificate peek for agent infra workflows",
+-    price: "$0.01",
++    price: "$0.007",
+     scheme: "exact",
+     enabled: true,
+     category: "bundle",
+@@ -191,6 +191,8 @@ export const VENDING_SERVICES: VendingService[] = [
+     ],
+     handler: bundleInfraHandler,
+     discovery: {
++      tags: ["infra", "dns", "networking"],
++      estimatedLatencyMs: 800,
+       exampleQuery: { host: "example.com" },
+       exampleOutput: {
+         service: "bundle-infra",
+@@ -207,7 +209,7 @@ export const VENDING_SERVICES: VendingService[] = [
+     name: "Outbound pack (email + IP + HEAD)",
+     description:
+       "One payment for lead-gen and fraud agents: email format/MX, IP geolocation, and SSRF-safe HTTP HEAD",
+-    price: "$0.01",
++    price: "$0.007",
+     scheme: "exact",
+     enabled: true,
+     category: "bundle",
+@@ -218,6 +220,8 @@ export const VENDING_SERVICES: VendingService[] = [
+     ],
+     handler: bundleOutboundHandler,
+     discovery: {
++      tags: ["outbound", "lead-gen", "fraud"],
++      estimatedLatencyMs: 1200,
+       exampleQuery: {
+         email: "test@gmail.com",
+         ip: "8.8.8.8",
+diff --git a/apps/vending-machine/lib/services/types.ts b/apps/vending-machine/lib/services/types.ts
+index bab9929..f62909b 100644
+--- a/apps/vending-machine/lib/services/types.ts
++++ b/apps/vending-machine/lib/services/types.ts
+@@ -16,6 +16,10 @@ export type VendingDiscovery = {
+   exampleOutput: Record<string, unknown>;
+   /** Optional property map for output JSON Schema. */
+   outputSchema?: Record<string, unknown>;
++  /** Estimated latency in milliseconds (for agent planning). */
++  estimatedLatencyMs?: number;
++  /** Capability tags for search/filtering. */
++  tags?: string[];
+ };
+ 
+ /** UI / catalog grouping — bundles lead discovery; premium is higher ARPU. */
