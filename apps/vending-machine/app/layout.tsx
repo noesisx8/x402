@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import { SiteHeader } from "@/components/site-header";
 import "./globals.css";
 
@@ -14,6 +15,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen bg-zinc-950 text-zinc-100 antialiased">
         <SiteHeader />
         {children}
+        <Analytics />
       </body>
     </html>
   );

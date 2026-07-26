@@ -44,8 +44,10 @@ export default function TestPage() {
         const list = j.services ?? [];
         setServices(list);
         if (list.length > 0) {
-          setSlug(list[0].slug);
-          setQs(list[0].qs ?? "");
+          const requestedSlug = new URLSearchParams(window.location.search).get("slug");
+          const initial = list.find((s) => s.slug === requestedSlug) ?? list[0];
+          setSlug(initial.slug);
+          setQs(initial.qs ?? "");
         }
       })
       .catch((e) => {

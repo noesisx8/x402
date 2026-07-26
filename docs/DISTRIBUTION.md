@@ -27,13 +27,22 @@ On **portalv2**, pay once per important route (or at least once for a representa
 
 https://vending-machine-seven.vercel.app/test  
 
-Recommended seed set (cheap):
+Recommended seed set (cheap + still-missing):
 
 | Route | Query | Price |
-|-------|--------|-------|
+|-------|--------|------:|
 | `dns-resolve` | `host=example.com` | $0.003 |
 | `fx-rate` | `base=USD&symbols=EUR` | $0.003 |
 | `http-head` | `url=https://example.com` | $0.002 |
+| **`bundle-outbound`** | `email=test@gmail.com&ip=8.8.8.8&url=https://example.com` | $0.01 |
+| `dns-records` | `host=example.com` | $0.004 |
+| `http-get` | `url=https://httpbin.org/json` | $0.004 |
+| `fetch-text` | `url=https://example.com` | $0.005 |
+| `base-balance` | `address=0xc648116b5deBE4AF7D78838AA468d07e0A9Ab697` | $0.003 |
+| `domain-intel` | `host=example.com` | $0.015 |
+| `kronos-forecast` | `symbol=BTCUSDT&interval=1h` | $0.05 |
+
+**Priority:** `bundle-outbound` is the only registry slug still **absent from CDP Bazaar** (as of 2026-07-17). The other expansion tools above may already be indexed but should be re-settled at least every **30 days**.
 
 Then wait ≤10 minutes and run:
 
@@ -82,11 +91,21 @@ Coinbase’s public marketplace is **[Agentic.Market](https://agentic.market/)**
 
 ---
 
+## Trust indexes (x402-trust / fuchss)
+
+Separate from Bazaar volume listing: **[x402.fuchss.app](https://x402.fuchss.app)** grades endpoints on uptime, envelope compliance, and on-chain settlement reputation.
+
+- Full ops checklist, endpoint map, and manual `curl` probes: **`docs/X402_TRUST_OPS.md`**
+- Snapshot 2026-07-17: **12 / 19** routes listed (all **B ~69**); **18 / 19** in Bazaar
+- Free stats: `GET https://x402.fuchss.app/trust/stats`
+- Paid deep score: `POST /v1/x402-trust` @ $0.005 (run only on **portalv2**)
+
 ## Other distribution (optional)
 
 | Channel | Action |
 |---------|--------|
 | awesome-x402 | PR #778 (open) |
+| x402-trust (fuchss) | Track grades — `docs/X402_TRUST_OPS.md` |
 | PayAPI.market | Free list at https://payapi.market/list if desired |
 | Self-hosted | Already: agent-services.json + OpenAPI |
 
@@ -96,24 +115,26 @@ Coinbase’s public marketplace is **[Agentic.Market](https://agentic.market/)**
 - [x] Deploy live  
 - [x] `Payment-Required` contains `bazaar`  
 - [x] ≥1 paid settle after Bazaar deploy (merchant catalog indexed)  
-- [x] Merchant discovery returns our URLs (**11/12** as of 2026-07-10)  
+- [x] Merchant discovery returns our URLs (**18/19** as of 2026-07-17; only `bundle-outbound` missing)  
 - [x] Semantic search by domain / payTo returns our URLs  
-- [ ] Optional: seed **`crypto-prices`** if missing from merchant list  
+- [x] Expansion tools seeded (dns-records, fetch-text, domain-intel, kronos, …)  
+- [ ] Seed **`bundle-outbound`** (last Bazaar gap)  
 - [x] **Visible on Agentic.Market** (2026-07-10 — user confirmed; found via Bazaar)
 
-### Verified snapshot (2026-07-10)
+### Verified snapshot (2026-07-17)
 
 | Check | Result |
 |-------|--------|
-| Merchant `payTo=0xc648…b697` | **11+** resources (expand after re-settle on new tools) |
+| Merchant `payTo=0xc648…b697` | **18** resources (missing `bundle-outbound`) |
 | Search `query=vending-machine-seven` | **hits include our routes** |
 | Search `payTo=…` | **yes** |
 | **Agentic.Market** | **Live** — Found on Bazaar |
-| Catalog size | **17** live tools (quality expansion) |
+| Catalog size | **18** live tools in Bazaar; **19** in registry |
 | Bazaar `routeTemplate` | Pinned to `/api/v/{slug}` (not `:var1`) |
+| **x402-trust (fuchss)** | **12** listed, all **B ~69** — see `docs/X402_TRUST_OPS.md` |
 
-**New tools to seed (pay once each on `/test` after deploy):**  
-`bundle-outbound`, `kronos-forecast` (needs Railway `KRONOS_API_*`), plus any still-missing: `dns-records`, `fetch-text`, `domain-intel`
+**Still to seed on `/test` (portalv2):**  
+`bundle-outbound` only (Bazaar gap). Re-settle others within 30d to stay indexed.
 
 ```http
 GET https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant?payTo=0xc648116b5deBE4AF7D78838AA468d07e0A9Ab697

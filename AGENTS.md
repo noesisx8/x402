@@ -53,3 +53,5 @@ See `docs/HOSTS.md`.
 - FAQ cheat sheet: `docs/CDP_X402_FAQ_REFERENCE.md`
 - Service demand: `docs/TOP_X402_SERVICES.md`
 - Hub roadmap: `docs/ROADMAP_ULTIMATE_VENDING_HUB.md`
+- Distribution / Bazaar: `docs/DISTRIBUTION.md`
+- x402-trust grades (fuchss): `docs/X402_TRUST_OPS.md`
