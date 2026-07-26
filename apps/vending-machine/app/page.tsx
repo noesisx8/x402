@@ -29,11 +29,26 @@ function Section({
   );
 }
 
-function StatPill({ label, value }: { label: string; value: string }) {
+function StatPill({
+  label,
+  value,
+  tone = "emerald",
+}: {
+  label: string;
+  value: string;
+  tone?: "emerald" | "cyan";
+}) {
+  const glow =
+    tone === "cyan"
+      ? "group-hover:border-cyan-300/30 group-hover:shadow-cyan-400/10"
+      : "group-hover:border-emerald-300/30 group-hover:shadow-emerald-400/10";
+
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 shadow-2xl shadow-black/20 backdrop-blur">
+    <div
+      className={`group rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-4 shadow-2xl shadow-black/20 backdrop-blur transition duration-300 hover:-translate-y-0.5 hover:bg-white/[0.065] ${glow}`}
+    >
       <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-500">{label}</p>
-      <p className="mt-1 text-lg font-semibold text-zinc-50">{value}</p>
+      <p className="mt-2 text-xl font-semibold text-zinc-50">{value}</p>
     </div>
   );
 }
@@ -57,57 +72,61 @@ export default function HomePage() {
         <section className="relative overflow-hidden rounded-[2rem] border border-emerald-300/20 bg-zinc-950/80 p-px shadow-[0_0_80px_rgba(16,185,129,0.16)] backdrop-blur">
           <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(16,185,129,0.28),transparent_28%,transparent_72%,rgba(34,211,238,0.18))]" />
           <div className="absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300 to-transparent" />
-          <div className="relative grid gap-8 rounded-[2rem] bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.20),transparent_35%),linear-gradient(135deg,rgba(24,24,27,0.94),rgba(9,9,11,0.98))] p-6 sm:p-10 lg:grid-cols-[1fr_360px] lg:items-center">
-            <div>
+          <div className="relative grid gap-10 rounded-[2rem] bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.20),transparent_35%),linear-gradient(135deg,rgba(24,24,27,0.94),rgba(9,9,11,0.98))] p-6 sm:p-10 lg:grid-cols-[minmax(0,1fr)_390px] lg:items-center">
+            <div className="max-w-4xl">
               <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-emerald-200 shadow-[0_0_30px_rgba(16,185,129,0.20)]">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_14px_rgba(110,231,183,0.9)]" />
                 x402 V2 · Base bundler hub
               </div>
               <h1 className="mt-6 max-w-4xl text-4xl font-semibold tracking-[-0.04em] text-zinc-50 sm:text-6xl lg:text-7xl">
-                Multi-step agent jobs.
+                Agent-grade APIs,
                 <span className="block bg-gradient-to-r from-emerald-200 via-cyan-100 to-lime-200 bg-clip-text text-transparent drop-shadow-[0_0_28px_rgba(16,185,129,0.22)]">
-                  One USDC payment.
+                  settled in one USDC payment.
                 </span>
               </h1>
               <p className="mt-6 max-w-2xl text-base leading-8 text-zinc-300 sm:text-lg">
-                Pay-per-call HTTP utilities and AI-ready research tools, settled in USDC on Base — no
-                accounts required. Live upstream only, fail-closed with no settlement on handler errors.
+                Pay once, call live HTTP utilities and AI-ready research bundles on Base. No accounts;
+                failed handlers close safely before settlement.
               </p>
-              <div className="mt-8 flex flex-wrap gap-3 text-sm">
+              <div className="mt-9 flex flex-wrap items-center gap-3 text-sm">
                 <Link
                   href="/test"
-                  className="rounded-2xl bg-emerald-300 px-5 py-3 font-semibold text-zinc-950 shadow-[0_0_38px_rgba(16,185,129,0.35)] transition hover:-translate-y-0.5 hover:bg-emerald-200 hover:shadow-[0_0_54px_rgba(16,185,129,0.45)]"
+                  className="group relative overflow-hidden rounded-2xl bg-emerald-300 px-6 py-3 font-semibold text-zinc-950 shadow-[0_0_38px_rgba(16,185,129,0.35)] transition duration-300 hover:-translate-y-0.5 hover:bg-emerald-200 hover:shadow-[0_0_62px_rgba(16,185,129,0.55)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
                 >
-                  Try wallet payment
+                  <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/35 to-transparent transition duration-700 group-hover:translate-x-full" />
+                  <span className="relative">Try wallet payment</span>
                 </Link>
                 <Link
                   href="/.well-known/agent-services.json"
-                  className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-zinc-100 transition hover:-translate-y-0.5 hover:border-emerald-300/40 hover:bg-white/[0.07]"
+                  className="rounded-2xl border border-white/10 bg-white/[0.035] px-5 py-3 text-zinc-200 transition duration-300 hover:-translate-y-0.5 hover:border-emerald-300/40 hover:bg-emerald-300/[0.07] hover:text-emerald-100 hover:shadow-[0_0_28px_rgba(16,185,129,0.14)]"
                 >
                   Agent catalog
                 </Link>
                 <Link
                   href="/api/openapi.json"
-                  className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-zinc-100 transition hover:-translate-y-0.5 hover:border-cyan-300/40 hover:bg-white/[0.07]"
+                  className="rounded-2xl border border-white/10 bg-white/[0.035] px-5 py-3 text-zinc-200 transition duration-300 hover:-translate-y-0.5 hover:border-cyan-300/40 hover:bg-cyan-300/[0.07] hover:text-cyan-100 hover:shadow-[0_0_28px_rgba(34,211,238,0.12)]"
                 >
                   OpenAPI
                 </Link>
               </div>
             </div>
 
-            <div className="relative rounded-3xl border border-white/10 bg-black/30 p-5 shadow-2xl shadow-black/30 backdrop-blur">
-              <div className="absolute -inset-px rounded-3xl bg-gradient-to-br from-emerald-300/20 via-transparent to-cyan-300/20 opacity-80" />
-              <div className="relative space-y-4">
-                <div className="rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-4">
-                  <p className="text-[11px] uppercase tracking-[0.28em] text-emerald-200">Live settlement</p>
-                  <p className="mt-2 text-3xl font-semibold text-zinc-50">{enabled.length} tools</p>
-                  <p className="mt-1 text-sm text-zinc-400">Network {network}</p>
+            <div className="relative rounded-[1.75rem] border border-white/10 bg-black/35 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.42)] backdrop-blur transition duration-300 hover:border-emerald-300/20 hover:shadow-[0_24px_90px_rgba(16,185,129,0.14)]">
+              <div className="absolute -inset-px rounded-[1.75rem] bg-gradient-to-br from-emerald-300/20 via-transparent to-cyan-300/20 opacity-80" />
+              <div className="relative space-y-5">
+                <div className="rounded-3xl border border-emerald-300/25 bg-[radial-gradient(circle_at_top_right,rgba(52,211,153,0.24),transparent_42%),rgba(16,185,129,0.10)] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_45px_rgba(16,185,129,0.10)]">
+                  <div className="flex items-center justify-between gap-4">
+                    <p className="text-[11px] uppercase tracking-[0.28em] text-emerald-200">Live settlement</p>
+                    <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] text-emerald-100">online</span>
+                  </div>
+                  <p className="mt-4 text-4xl font-semibold tracking-tight text-zinc-50">{enabled.length} tools</p>
+                  <p className="mt-2 text-sm text-zinc-400">Network {network}</p>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-4">
                   <StatPill label="Bundles" value={String(bundles.length)} />
-                  <StatPill label="Premium" value={String(premium.length)} />
+                  <StatPill label="Premium" value={String(premium.length)} tone="cyan" />
                   <StatPill label="Utilities" value={String(atoms.length)} />
-                  <StatPill label="Mode" value="x402" />
+                  <StatPill label="Mode" value="x402" tone="cyan" />
                 </div>
               </div>
             </div>
