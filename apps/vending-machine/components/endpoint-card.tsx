@@ -18,9 +18,76 @@ function categoryLabel(service: VendingService): string {
   return "Utility";
 }
 
+function includedTools(service: VendingService): string[] {
+  const bySlug: Record<string, string[]> = {
+    "bundle-infra": ["DNS", "HTTP HEAD", "TLS cert"],
+    "bundle-outbound": ["Email", "IP geo", "HTTP HEAD"],
+    "domain-intel": ["DNS", "TLS", "RDAP", "HTTP HEAD"],
+  };
+
+  return bySlug[service.slug] ?? service.queryParams.slice(0, 4).map((param) => param.name);
+}
+
 export function EndpointCard({ service, featured = false }: EndpointCardProps) {
   const endpointPath = `/api/v/${service.slug}`;
   const requiredCount = service.queryParams.filter((p) => p.required).length;
+  const tools = includedTools(service);
+
+  if (featured) {
+    return (
+      <article className="group relative overflow-hidden rounded-3xl border border-emerald-300/25 bg-zinc-950/70 p-px shadow-2xl shadow-black/25 backdrop-blur transition duration-300 hover:-translate-y-1 hover:border-emerald-300/40 hover:shadow-[0_0_54px_rgba(16,185,129,0.18)]">
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-300/14 via-transparent to-cyan-300/10 opacity-0 transition duration-300 group-hover:opacity-100" />
+        <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/70 to-transparent" />
+        <div className="relative flex h-full flex-col rounded-3xl bg-[linear-gradient(135deg,rgba(24,24,27,0.90),rgba(9,9,11,0.96))] p-5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-emerald-300/25 bg-emerald-300/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-200 shadow-[0_0_24px_rgba(16,185,129,0.12)]">
+              {categoryLabel(service)}
+            </span>
+            <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-zinc-300">
+              {service.price} USDC
+            </span>
+          </div>
+
+          <h3 className="mt-5 text-2xl font-semibold tracking-tight text-zinc-50">{service.name}</h3>
+          <p className="mt-2 text-sm leading-6 text-zinc-400">{service.description}</p>
+
+          <div className="mt-5">
+            <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-500">Includes</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {tools.slice(0, 4).map((tool) => (
+                <span
+                  key={tool}
+                  className="rounded-xl border border-white/10 bg-white/[0.045] px-2.5 py-1 text-xs text-zinc-300"
+                >
+                  {tool}
+                </span>
+              ))}
+              {tools.length > 4 ? (
+                <span className="rounded-xl border border-white/10 bg-white/[0.045] px-2.5 py-1 text-xs text-zinc-500">
+                  +{tools.length - 4} more
+                </span>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-wrap gap-3 text-sm">
+            <Link
+              href={`/test?slug=${encodeURIComponent(service.slug)}`}
+              className="rounded-xl bg-emerald-300 px-4 py-2.5 font-semibold text-zinc-950 shadow-[0_0_28px_rgba(16,185,129,0.24)] transition hover:bg-emerald-200 hover:shadow-[0_0_44px_rgba(16,185,129,0.36)]"
+            >
+              Try bundle
+            </Link>
+            <Link
+              href={endpointPath}
+              className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-zinc-200 transition hover:border-emerald-300/40 hover:bg-white/[0.07]"
+            >
+              View API
+            </Link>
+          </div>
+        </div>
+      </article>
+    );
+  }
 
   return (
     <article
