@@ -14,11 +14,13 @@ function Section({
   title,
   eyebrow,
   description,
+  gridClassName = "lg:grid-cols-3",
   children,
 }: {
   title: string;
   eyebrow: string;
   description?: string;
+  gridClassName?: string;
   children: ReactNode;
 }) {
   return (
@@ -28,7 +30,7 @@ function Section({
       <p className="text-sm font-medium uppercase tracking-[0.28em] text-emerald-300/90">{eyebrow}</p>
       <h2 className="mt-3 text-2xl font-semibold tracking-tight text-zinc-50 sm:text-3xl">{title}</h2>
       {description ? <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400">{description}</p> : null}
-      <div className="mt-7 grid gap-5 lg:grid-cols-3">{children}</div>
+      <div className={`mt-7 grid gap-5 ${gridClassName}`}>{children}</div>
     </section>
   );
 }
@@ -170,7 +172,11 @@ export default function HomePage() {
           </Section>
         )}
 
-        <Section title="Utility atoms" eyebrow="Single-purpose paid endpoints">
+        <Section
+          title="Utility atoms"
+          eyebrow="Single-purpose paid endpoints"
+          gridClassName="xl:grid-cols-2"
+        >
           {atoms.map((s) => (
             <EndpointCard key={s.slug} service={s} />
           ))}
