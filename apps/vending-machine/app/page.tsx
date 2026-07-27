@@ -156,7 +156,7 @@ export default function HomePage() {
         </Section>
 
         {premium.length > 0 && (
-          <Section title="Premium research tools" eyebrow="Higher-value calls">
+          <Section title="Premium research tools" eyebrow="Higher-value calls" gridClassName="xl:grid-cols-2">
             {premium.map((s) => (
               <EndpointCard key={s.slug} service={s} />
             ))}
