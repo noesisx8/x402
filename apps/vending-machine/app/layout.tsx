@@ -1,20 +1,16 @@
 import type { Metadata } from "next";
-import { SiteHeader } from "@/components/site-header";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "x402 Vending Machine",
+  title: "x402 Vending Machine — Agent-grade APIs, settled on Base",
   description:
-    "Pay-per-call HTTP utilities and AI-ready research tools, settled in USDC on Base — no accounts required.",
+    "19 pay-per-call x402 endpoints for agents and developers, settled in USDC on Base with no accounts or API keys.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-zinc-950 text-zinc-100 antialiased">
-        <SiteHeader />
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
