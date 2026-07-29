@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import type { Address } from "viem";
-import { ALL_TOOLS, CATALOG, FAQS, type CatalogCategory, type CatalogTool } from "@/lib/catalog";
+import { CATALOG, FAQS, type CatalogCategory, type CatalogTool } from "@/lib/catalog";
 import { connectBrowserWallet, paidGet, type ClientNetworkConfig } from "@/lib/x402/paid-fetch-client";
 
 type Props = {
@@ -11,22 +11,10 @@ type Props = {
   network: string;
 };
 
-type Settlement = { addr: string; tool: string; price: number; ts: number; tx: string };
-type SortKey = "name" | "price" | "latency" | "uptime";
+type SortKey = "name" | "price";
 
 const short = (v: string) => (v.length > 12 ? `${v.slice(0, 6)}…${v.slice(-4)}` : v);
 const fmt = (n: number) => `$${n.toFixed(n >= 0.01 ? 2 : 3)}`;
-const sample = (v: unknown) => JSON.stringify(v, null, 2);
-const nowAgo = (ts: number) => {
-  const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
-  if (s < 5) return "just now";
-  if (s < 60) return `${s}s ago`;
-  return `${Math.floor(s / 60)}m ago`;
-};
-const randHex = (n: number) => Array.from({ length: n }, () => "0123456789abcdef"[Math.floor(Math.random() * 16)]).join("");
-const randAddr = () => `0x${randHex(4)}…${randHex(4)}`;
-const randTx = () => `0x${randHex(64)}`;
-
 function curlFor(baseUrl: string, tool: CatalogTool) {
   const value = tool.endpoint.includes("=") ? "<value>" : "";
   return `curl -X GET "${baseUrl}${tool.endpoint}${value}" \\\n  -H "X-Payment-Proof: <settlement-token>"`;
@@ -43,13 +31,10 @@ export function VendingHome({ baseUrl, contractAddress, network }: Props) {
   const [address, setAddress] = useState<Address | null>(null);
   const [config, setConfig] = useState<ClientNetworkConfig | null>(null);
   const [busyPay, setBusyPay] = useState<string | null>(null);
-  const [openCard, setOpenCard] = useState<Record<string, "sample" | "curl" | null>>({});
+  const [openCard, setOpenCard] = useState<Record<string, "curl" | null>>({});
   const [openRow, setOpenRow] = useState<string | null>(null);
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 } | null>(null);
   const [openFaq, setOpenFaq] = useState(0);
-  const [calls, setCalls] = useState(128431);
-  const [settlements, setSettlements] = useState<Settlement[]>([]);
-  const [tick, setTick] = useState(0);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -85,24 +70,6 @@ export function VendingHome({ baseUrl, contractAddress, network }: Props) {
       .then(setConfig)
       .catch(() => undefined);
   }, []);
-
-  useEffect(() => {
-    const seed = Array.from({ length: 6 }, () => makeSettlement());
-    setSettlements(seed);
-    const settlementTimer = window.setInterval(() => setSettlements((prev) => [makeSettlement(), ...prev].slice(0, 10)), 3800);
-    const ageTimer = window.setInterval(() => setTick((x) => x + 1), 5000);
-    const statTimer = window.setInterval(() => setCalls((x) => x + Math.floor(Math.random() * 4) + 1), 4200);
-    return () => {
-      window.clearInterval(settlementTimer);
-      window.clearInterval(ageTimer);
-      window.clearInterval(statTimer);
-    };
-  }, []);
-
-  function makeSettlement(): Settlement {
-    const tool = ALL_TOOLS[Math.floor(Math.random() * ALL_TOOLS.length)];
-    return { addr: randAddr(), tool: tool.id, price: tool.price, ts: Date.now(), tx: randTx() };
-  }
 
   const connect = useCallback(async () => {
     if (address) {
@@ -168,6 +135,7 @@ export function VendingHome({ baseUrl, contractAddress, network }: Props) {
 
   const sortBy = (key: SortKey) => setSort((s) => (s?.key === key ? { key, dir: s.dir === 1 ? -1 : 1 } : { key, dir: 1 }));
   const arr = (key: SortKey) => (sort?.key === key ? (sort.dir === 1 ? "↑" : "↓") : "");
+  const explorerBase = network === "eip155:84532" ? "https://sepolia.basescan.org" : "https://basescan.org";
 
   return (
     <>
@@ -184,7 +152,7 @@ export function VendingHome({ baseUrl, contractAddress, network }: Props) {
         </div>
       </header>
 
-      <div className="ticker-wrap"><div className="ticker"><span className="live-tag"><span className="dot" />LIVE SETTLEMENTS</span><div className="ticker-track">{settlements.map((e, i) => <div className="tick" key={`${e.ts}-${i}`}><span className="ck">✓</span><span>{e.addr}</span> paid <b>{fmt(e.price)}</b> → <span className="tl">{e.tool}</span> <span className="tm">· {nowAgo(e.ts + tick * 0)}</span></div>)}</div></div></div>
+      <div className="ticker-wrap"><div className="ticker"><span className="live-tag"><span className="dot" />TESTNET READY</span><div className="ticker-track"><div className="tick"><span className="ck">✓</span><span>Real-time settlement feed not connected yet</span><span className="tm"> · waiting for live source</span></div></div></div></div>
 
       <main id="top">
         <section className="hero wrap">
@@ -192,25 +160,25 @@ export function VendingHome({ baseUrl, contractAddress, network }: Props) {
           <h1>Agent-grade APIs.<br />One USDC payment. <span className="g">Live settlement.</span></h1>
           <p>19 pay-per-call endpoints for agents and developers. No accounts, no API keys, no subscriptions — your wallet signature is the auth. Failed calls never settle.</p>
           <div className="cta-row"><a className="btn btn-pri" href="#tools">Browse 19 tools ↓</a><a className="btn btn-sec" href="/api/openapi.json">OpenAPI spec ↗</a><a className="btn btn-sec" href="https://github.com/noesisx8/x402">GitHub ↗</a></div>
-          <div className="trust-row"><span className="trust-pill">contract <b>{short(contractAddress)}</b> <button onClick={() => copyText(contractAddress, "Contract address")} type="button">copy</button></span><span className="trust-pill"><a href={`https://basescan.org/address/${contractAddress}`}>View on Basescan ↗</a></span><span className="trust-pill"><span className="dot" />settlement guard active</span></div>
+          <div className="trust-row"><span className="trust-pill">contract <b>{short(contractAddress)}</b> <button onClick={() => copyText(contractAddress, "Contract address")} type="button">copy</button></span><span className="trust-pill"><a href={`${explorerBase}/address/${contractAddress}`}>View on Basescan ↗</a></span><span className="trust-pill"><span className="dot" />settlement guard active</span></div>
         </section>
 
-        <section className="how wrap" id="how"><div className="sec-label">How it works</div><h2>Pay → prove → call. Three steps, ~1.2 seconds.</h2><div className="steps">
+        <section className="how wrap" id="how"><div className="sec-label">How it works</div><h2>Pay → prove → call. Three steps on testnet.</h2><div className="steps">
           <Step n="1" h="Request an endpoint" p="Hit any tool URL. If unpaid, the server responds 402 Payment Required with the exact USDC price and payment route." />
-          <Step n="2" h="Sign with your wallet" p="Your wallet (or agent) signs a USDC transfer on Base. No account creation, no API key management, no custody." />
+          <Step n="2" h="Sign with your wallet" p="Your wallet (or agent) signs a USDC transfer on the configured Base network. No account creation, no API key management, no custody." />
           <Step n="3" h="Retry with proof" p="Resend the request with the X-Payment-Proof header. Settlement verifies on-chain and data returns instantly." />
-        </div><div className="term"><div className="term-bar"><span className="red" /><span className="amber" /><span className="green" /><span className="term-title">x402 handshake — dns-resolve</span></div><pre className="term-body"><span className="c1">GET /v1/dns-resolve?domain=base.org</span> <span className="cm">→</span> <span className="c2">402 Payment Required</span> <span className="cm">{"{ price: \"$0.004\", payTo: \""}{short(contractAddress)}{"\" }"}</span>{"\n"}<span className="c3">wallet signs USDC transfer</span> <span className="cm">→</span> <span className="c2">Base settlement</span> <span className="cm">~1.2s · final</span>{"\n"}<span className="c1">GET + X-Payment-Proof: 0x7f3a…</span> <span className="cm">→</span> <span className="c3">200 OK</span> <span className="cm">{"{ \"A\": [\"145.239.12.9\"], … }"}</span></pre></div></section>
+        </div><div className="term"><div className="term-bar"><span className="red" /><span className="amber" /><span className="green" /><span className="term-title">x402 handshake — dns-resolve</span></div><pre className="term-body"><span className="c1">GET /v1/dns-resolve?domain=base.org</span> <span className="cm">→</span> <span className="c2">402 Payment Required</span> <span className="cm">{"{ price: \"$0.004\", payTo: \""}{short(contractAddress)}{"\" }"}</span>{"\n"}<span className="c3">wallet signs USDC transfer</span> <span className="cm">→</span> <span className="c2">testnet settlement</span> <span className="cm">live timing pending</span>{"\n"}<span className="c1">GET + X-Payment-Proof: &lt;live proof&gt;</span> <span className="cm">→</span> <span className="c3">200 OK</span> <span className="cm">{"{ \"A\": [\"145.239.12.9\"], … }"}</span></pre></div></section>
 
-        <section className="stats"><div className="stats-grid"><Stat v={calls.toLocaleString()} l="calls settled" /><Stat v="19" l="live endpoints" /><Stat v="99.97%" l="30-day uptime" /><Stat v="~1.2s" l="avg settlement" /></div></section>
+        <section className="stats"><div className="stats-grid"><Stat v="—" l="testnet calls settled" /><Stat v="19" l="configured endpoints" /><Stat v="—" l="live uptime" /><Stat v="—" l="avg settlement" /></div></section>
 
         <section className="tools wrap" id="tools"><div className="sec-label">Catalog</div><h2>Tools &amp; bundles</h2><div className="controls"><label className="search"><span>⌕</span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="search tools… (try 'dns' or 'price')" /></label>{(["all", "bundle", "premium", "utility"] as const).map((c) => <button key={c} className={`chip ${cat === c ? "on" : ""}`} onClick={() => setCat(c)} type="button">{c === "all" ? "All" : c === "bundle" ? "Bundles" : c === "premium" ? "Premium" : "Utilities"}</button>)}</div><div className="legend">ⓘ All endpoints are <code>GET</code> · paid via <code>x402</code> · priced in <code>USDC on Base</code> — shown once here instead of on every card.</div>
           {empty && <div className="empty-state">No tools match your search.</div>}
           {(cat === "all" || cat === "bundle") && bundles.length > 0 && <ToolGroup title="Bundles — pay once, call many" tools={bundles} baseUrl={baseUrl} openCard={openCard} setOpenCard={setOpenCard} copyText={copyText} pay={pay} busyPay={busyPay} />}
           {(cat === "all" || cat === "premium") && premium.length > 0 && <ToolGroup title="Premium" tools={premium} baseUrl={baseUrl} openCard={openCard} setOpenCard={setOpenCard} copyText={copyText} pay={pay} busyPay={busyPay} />}
-          {(cat === "all" || cat === "utility") && utilities.length > 0 && <div><div className="group-label">Utility atoms — click a row for sample response &amp; curl</div><div className="tbl-wrap"><div className="tbl-scroll"><table><thead><tr><th onClick={() => sortBy("name")}>Tool <span className="arr">{arr("name")}</span></th><th>Params</th><th onClick={() => sortBy("price")}>Price <span className="arr">{arr("price")}</span></th><th onClick={() => sortBy("latency")}>Latency <span className="arr">{arr("latency")}</span></th><th onClick={() => sortBy("uptime")}>Uptime <span className="arr">{arr("uptime")}</span></th><th /></tr></thead><tbody>{utilities.map((t) => <UtilityRow key={t.id} tool={t} baseUrl={baseUrl} open={openRow === t.id} setOpenRow={setOpenRow} copyText={copyText} />)}</tbody></table></div></div></div>}
+          {(cat === "all" || cat === "utility") && utilities.length > 0 && <div><div className="group-label">Utility atoms — click a row for curl</div><div className="tbl-wrap"><div className="tbl-scroll"><table><thead><tr><th onClick={() => sortBy("name")}>Tool <span className="arr">{arr("name")}</span></th><th>Params</th><th onClick={() => sortBy("price")}>Price <span className="arr">{arr("price")}</span></th><th /></tr></thead><tbody>{utilities.map((t) => <UtilityRow key={t.id} tool={t} baseUrl={baseUrl} open={openRow === t.id} setOpenRow={setOpenRow} copyText={copyText} />)}</tbody></table></div></div></div>}
         </section>
 
-        <section className="proof wrap" id="proof"><div className="sec-label">Trust</div><h2>On-chain proof, not promises</h2><div className="proof-grid"><div className="proof-card"><h3>Settlement contract</h3><div className="contract"><span>{short(contractAddress)}</span><button className="mini-btn" onClick={() => copyText(contractAddress, "Contract address")} type="button">copy</button></div><Info label="Network" value="Base (eip155:8453)" /><Info label="Currency" value="USDC" /><Info label="Failed calls" value="never settle" ok /><div className="settle-row"><span>Source</span><a href="https://github.com/noesisx8/x402">github ↗</a></div></div><div className="proof-card"><h3>Recent settlements · <a href={`https://basescan.org/address/${contractAddress}`}>view all on Basescan ↗</a></h3>{settlements.slice(0, 6).map((e) => <div className="settle-row" key={`${e.tx}-${e.ts}`}><a className="tx" href={`https://basescan.org/tx/${e.tx}`}>{short(e.tx)}</a><span>{e.tool}</span><b>{fmt(e.price)}</b><span className="tm">{nowAgo(e.ts)}</span></div>)}</div></div></section>
+        <section className="proof wrap" id="proof"><div className="sec-label">Trust</div><h2>On-chain proof, not promises</h2><div className="proof-grid"><div className="proof-card"><h3>Settlement contract</h3><div className="contract"><span>{short(contractAddress)}</span><button className="mini-btn" onClick={() => copyText(contractAddress, "Contract address")} type="button">copy</button></div><Info label="Network" value={network} /><Info label="Currency" value="USDC" /><Info label="Failed calls" value="never settle" ok /><div className="settle-row"><span>Source</span><a href="https://github.com/noesisx8/x402">github ↗</a></div></div><div className="proof-card"><h3>Recent settlements</h3><div className="settle-row"><span>Feed status</span><b>ready for real-time testnet data</b></div><p className="desc">No settlement rows are rendered until a live stats source is connected.</p></div></div></section>
 
         <section className="faq wrap" id="faq"><div className="sec-label">FAQ</div><h2>Questions, answered</h2>{FAQS.map(([question, answer], i) => <div className={`faq-item ${openFaq === i ? "open" : ""}`} key={question}><button className="faq-q" onClick={() => setOpenFaq(openFaq === i ? -1 : i)} type="button">{question}<span className="chev">▶</span></button><div className="faq-a" style={{ maxHeight: openFaq === i ? 180 : 0 }}><div>{answer}</div></div></div>)}</section>
       </main>
@@ -225,19 +193,19 @@ function Step({ n, h, p }: { n: string; h: string; p: string }) { return <div cl
 function Stat({ v, l }: { v: string; l: string }) { return <div className="stat"><div className="stat-v">{v}</div><div className="stat-l">{l}</div></div>; }
 function Info({ label, value, ok }: { label: string; value: string; ok?: boolean }) { return <div className="settle-row"><span>{label}</span><b className={ok ? "up-ok" : ""}>{value}</b></div>; }
 
-function ToolGroup(props: { title: string; tools: CatalogTool[]; baseUrl: string; openCard: Record<string, "sample" | "curl" | null>; setOpenCard: Dispatch<SetStateAction<Record<string, "sample" | "curl" | null>>>; copyText: (text: string, label: string) => void; pay: (tool: CatalogTool) => void; busyPay: string | null }) {
+function ToolGroup(props: { title: string; tools: CatalogTool[]; baseUrl: string; openCard: Record<string, "curl" | null>; setOpenCard: Dispatch<SetStateAction<Record<string, "curl" | null>>>; copyText: (text: string, label: string) => void; pay: (tool: CatalogTool) => void; busyPay: string | null }) {
   return <div><div className="group-label">{props.title}</div><div className="cards">{props.tools.map((tool) => <ToolCard key={tool.id} {...props} tool={tool} />)}</div></div>;
 }
 
-function ToolCard({ tool, baseUrl, openCard, setOpenCard, copyText, pay, busyPay }: { tool: CatalogTool; baseUrl: string; openCard: Record<string, "sample" | "curl" | null>; setOpenCard: Dispatch<SetStateAction<Record<string, "sample" | "curl" | null>>>; copyText: (text: string, label: string) => void; pay: (tool: CatalogTool) => void; busyPay: string | null }) {
+function ToolCard({ tool, baseUrl, openCard, setOpenCard, copyText, pay, busyPay }: { tool: CatalogTool; baseUrl: string; openCard: Record<string, "curl" | null>; setOpenCard: Dispatch<SetStateAction<Record<string, "curl" | null>>>; copyText: (text: string, label: string) => void; pay: (tool: CatalogTool) => void; busyPay: string | null }) {
   const open = openCard[tool.id];
-  const setOpen = (kind: "sample" | "curl") => setOpenCard((s) => ({ ...s, [tool.id]: s[tool.id] === kind ? null : kind }));
-  return <article className="card"><div className="card-top"><h3>{tool.name}</h3><span className={`price ${tool.cat}`}>{fmt(tool.price)}</span></div><p className="desc">{tool.desc}</p><div className="endpoint"><span>{displayUrl(baseUrl, tool.endpoint)}</span><button className="mini-btn" onClick={() => copyText(`${baseUrl}${tool.endpoint}`, "Endpoint URL")} type="button">copy</button></div><div className="health"><span>latency <b>{tool.latency}ms</b></span><span>uptime <b className={tool.uptime >= 99.95 ? "up-ok" : "up-warn"}>{tool.uptime}%</b></span></div><div className="card-actions"><button className="act pay" onClick={() => pay(tool)} type="button" disabled={busyPay === tool.id}>{busyPay === tool.id ? "Paying…" : `Pay ${fmt(tool.price)}`}</button><button className="act" onClick={() => setOpen("sample")} type="button">Sample JSON</button><button className="act" onClick={() => setOpen("curl")} type="button">curl</button></div><Expander title="sample response" open={open === "sample"} text={sample(tool.sample)} copyText={copyText} label="Sample JSON" /><Expander title="curl" open={open === "curl"} text={curlFor(baseUrl, tool)} copyText={copyText} label="curl command" /></article>;
+  const setOpen = (kind: "curl") => setOpenCard((s) => ({ ...s, [tool.id]: s[tool.id] === kind ? null : kind }));
+  return <article className="card"><div className="card-top"><h3>{tool.name}</h3><span className={`price ${tool.cat}`}>{fmt(tool.price)}</span></div><p className="desc">{tool.desc}</p><div className="endpoint"><span>{displayUrl(baseUrl, tool.endpoint)}</span><button className="mini-btn" onClick={() => copyText(`${baseUrl}${tool.endpoint}`, "Endpoint URL")} type="button">copy</button></div><div className="health"><span>metrics <b>pending live feed</b></span></div><div className="card-actions"><button className="act pay" onClick={() => pay(tool)} type="button" disabled={busyPay === tool.id}>{busyPay === tool.id ? "Paying…" : `Pay ${fmt(tool.price)}`}</button><button className="act" onClick={() => setOpen("curl")} type="button">curl</button></div><Expander title="curl" open={open === "curl"} text={curlFor(baseUrl, tool)} copyText={copyText} label="curl command" /></article>;
 }
 
 function Expander({ title, open, text, copyText, label }: { title: string; open: boolean; text: string; copyText: (text: string, label: string) => void; label: string }) { return <div className={`expand ${open ? "open" : ""}`}><div className="ex-h"><span>{title}</span><button className="mini-btn" onClick={() => copyText(text, label)} type="button">copy</button></div><pre>{text}</pre></div>; }
 
 function UtilityRow({ tool, baseUrl, open, setOpenRow, copyText }: { tool: CatalogTool; baseUrl: string; open: boolean; setOpenRow: (id: string | null) => void; copyText: (text: string, label: string) => void }) {
   const curl = curlFor(baseUrl, tool);
-  return <><tr className={`row ${open ? "open" : ""}`} onClick={() => setOpenRow(open ? null : tool.id)}><td><span className="t-name"><span className="chev">▶</span>{tool.name}</span></td><td>{tool.params}</td><td><span className="price utility">{fmt(tool.price)}</span></td><td>{tool.latency}ms</td><td className={tool.uptime >= 99.95 ? "up-ok" : "up-warn"}>{tool.uptime}%</td><td><button className="mini-btn" onClick={(e) => { e.stopPropagation(); copyText(curl, "curl command"); }} type="button">copy curl</button></td></tr>{open && <tr className="detail"><td colSpan={6}><div className="detail-grid"><div><div className="ex-h"><span>sample response</span><button className="mini-btn" onClick={() => copyText(sample(tool.sample), "Sample JSON")} type="button">copy</button></div><pre>{sample(tool.sample)}</pre></div><div><div className="ex-h"><span>curl</span><button className="mini-btn" onClick={() => copyText(curl, "curl command")} type="button">copy</button></div><pre>{curl}</pre></div></div><div className="detail-desc">{tool.desc}</div></td></tr>}</>;
+  return <><tr className={`row ${open ? "open" : ""}`} onClick={() => setOpenRow(open ? null : tool.id)}><td><span className="t-name"><span className="chev">▶</span>{tool.name}</span></td><td>{tool.params}</td><td><span className="price utility">{fmt(tool.price)}</span></td><td><button className="mini-btn" onClick={(e) => { e.stopPropagation(); copyText(curl, "curl command"); }} type="button">copy curl</button></td></tr>{open && <tr className="detail"><td colSpan={4}><div className="detail-grid"><div><div className="ex-h"><span>curl</span><button className="mini-btn" onClick={() => copyText(curl, "curl command")} type="button">copy</button></div><pre>{curl}</pre></div></div><div className="detail-desc">{tool.desc}</div></td></tr>}</>;
 }
