@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Catalog, type CatalogService } from "@/components/catalog";
 import { CopyButton } from "@/components/copy-button";
 import { SettlementTicker } from "@/components/settlement-ticker";
+import { TerminalBox } from "@/components/terminal-box";
 import { SiteFooter } from "@/components/site-footer";
 import { VENDING_SERVICES } from "@/lib/services/registry";
 import { serviceApiPath } from "@/lib/services/types";
@@ -154,17 +155,33 @@ export default function HomePage() {
               </p>
             </div>
           </div>
-          <pre className="mt-4 overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-950 p-4 font-mono text-xs leading-6 text-zinc-400">
-{`GET /api/v/dns-resolve?domain=base.org
-→ 402 Payment Required
-   Payment-Required: { price: "$0.003", payTo: "${payToReal ? truncateAddress(payTo) : "<pay-to>"}", network: "${network}" }
-
-wallet signs USDC transferWithAuthorization
-
-GET /api/v/dns-resolve?domain=base.org
-   PAYMENT-SIGNATURE: <signed x402 payload>
-→ 200 OK  { "A": ["…"], "AAAA": ["…"] }`}
-          </pre>
+          <div className="mt-4">
+            <TerminalBox title="x402 handshake — dns-resolve">
+              <p className="break-all">
+                <span className="text-sky-400">GET</span>{" "}
+                <span className="text-zinc-300">/api/v/dns-resolve?domain=base.org</span>{" "}
+                <span className="text-zinc-600">→</span>{" "}
+                <span className="text-amber-300">402 Payment Required</span>
+              </p>
+              <p className="break-all pl-4 text-zinc-500">
+                Payment-Required: {"{ "}price: "$0.003", payTo: "
+                {payToReal ? truncateAddress(payTo) : "<pay-to>"}", network: "{network}"{" }"}
+              </p>
+              <p className="mt-2 crt-text">
+                wallet signs USDC transferWithAuthorization → facilitator verifies + settles
+                on-chain
+              </p>
+              <p className="mt-2 break-all">
+                <span className="text-sky-400">GET</span>{" "}
+                <span className="text-zinc-300">/api/v/dns-resolve?domain=base.org</span>{" "}
+                <span className="text-zinc-600">+</span>{" "}
+                <span className="text-amber-300/90">PAYMENT-SIGNATURE:</span>{" "}
+                <span className="text-zinc-500">&lt;signed x402 payload&gt;</span>{" "}
+                <span className="text-zinc-600">→</span> <span className="crt-text">200 OK</span>{" "}
+                <span className="text-zinc-500">{`{ "A": ["…"], "AAAA": ["…"] }`}</span>
+              </p>
+            </TerminalBox>
+          </div>
         </section>
 
         {/* Catalog */}
