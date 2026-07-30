@@ -1,11 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
+import { CAIP_NETWORK, serverEnv } from "@/lib/env";
 
 /** Vendor Buddy — x402 vending machine mascot (top-left brand mark). */
 export function SiteHeader() {
+  const network = CAIP_NETWORK[serverEnv.X402_NETWORK_MODE];
   return (
-    <header className="border-b border-zinc-800/80 bg-zinc-950/90 px-4 py-3 backdrop-blur sm:px-6">
-      <div className="mx-auto flex max-w-4xl items-center gap-3">
+    <header className="sticky top-0 z-10 border-b border-zinc-800/80 bg-zinc-950/90 px-4 py-3 backdrop-blur sm:px-6">
+      <div className="mx-auto flex max-w-5xl items-center gap-3">
         <Link
           href="/"
           className="group flex items-center gap-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
@@ -26,7 +28,22 @@ export function SiteHeader() {
             <p className="text-xs text-zinc-500">Vendor Buddy · Base USDC hub</p>
           </div>
         </Link>
+        <span className="hidden rounded border border-zinc-700 px-1.5 py-0.5 font-mono text-xs text-zinc-400 sm:inline">
+          Base · {network}
+        </span>
         <nav className="ml-auto flex flex-wrap items-center gap-3 text-xs text-zinc-400">
+          <Link className="hover:text-emerald-400" href="/#tools">
+            Tools
+          </Link>
+          <Link className="hover:text-emerald-400" href="/#how">
+            How it works
+          </Link>
+          <Link className="hover:text-emerald-400" href="/#proof">
+            Proof
+          </Link>
+          <Link className="hover:text-emerald-400" href="/#faq">
+            FAQ
+          </Link>
           <Link className="hover:text-emerald-400" href="/test">
             /test
           </Link>
