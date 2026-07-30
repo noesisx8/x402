@@ -44,8 +44,14 @@ export default function TestPage() {
         const list = j.services ?? [];
         setServices(list);
         if (list.length > 0) {
-          setSlug(list[0].slug);
-          setQs(list[0].qs ?? "");
+          // Deep link from catalog Pay buttons: /test?tool=<slug>
+          const wanted =
+            typeof window !== "undefined"
+              ? new URLSearchParams(window.location.search).get("tool")
+              : null;
+          const pick = list.find((s) => s.slug === wanted) ?? list[0];
+          setSlug(pick.slug);
+          setQs(pick.qs ?? "");
         }
       })
       .catch((e) => {

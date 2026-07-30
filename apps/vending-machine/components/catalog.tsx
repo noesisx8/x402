@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
+import Link from "next/link";
 import { TerminalBox } from "@/components/terminal-box";
 
 export type CatalogService = {
@@ -29,7 +30,12 @@ const FILTERS: { key: Filter; label: string }[] = [
 /** HTTP-style request preview inside a CRT terminal box; copy grabs full curl. */
 function CurlTerminal({ s }: { s: CatalogService }) {
   return (
-    <TerminalBox title={`x402 call — ${s.slug}`} copyText={s.curl}>
+    <TerminalBox
+      title={`x402 call — ${s.slug}`}
+      copyText={s.curl}
+      payHref={`/test?tool=${s.slug}`}
+      payLabel={`Pay ${s.price} →`}
+    >
       <p className="break-all">
         <span className="text-sky-400">GET</span>{" "}
         <span className="text-zinc-300">{s.path}</span>
@@ -50,7 +56,15 @@ function ServiceCard({ s }: { s: CatalogService }) {
     <article className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-lg font-medium">{s.name}</h3>
-        <span className="text-emerald-400">{s.price} USDC</span>
+        <span className="flex items-center gap-3">
+          <span className="text-emerald-400">{s.price} USDC</span>
+          <Link
+            href={`/test?tool=${s.slug}`}
+            className="rounded-md bg-emerald-500 px-3 py-1 font-sans text-sm font-medium text-emerald-950 transition hover:bg-emerald-400"
+          >
+            Pay {s.price} →
+          </Link>
+        </span>
       </div>
       <p className="mt-1 text-sm text-zinc-400">{s.description}</p>
       <p className="mt-2 font-mono text-xs text-zinc-500">GET {s.path}</p>

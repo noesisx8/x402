@@ -159,7 +159,7 @@ export default function HomePage() {
             <TerminalBox title="x402 handshake — dns-resolve">
               <p className="break-all">
                 <span className="text-sky-400">GET</span>{" "}
-                <span className="text-zinc-300">/api/v/dns-resolve?domain=base.org</span>{" "}
+                <span className="text-zinc-300">/api/v/dns-resolve?host=base.org</span>{" "}
                 <span className="text-zinc-600">→</span>{" "}
                 <span className="text-amber-300">402 Payment Required</span>
               </p>
@@ -173,7 +173,7 @@ export default function HomePage() {
               </p>
               <p className="mt-2 break-all">
                 <span className="text-sky-400">GET</span>{" "}
-                <span className="text-zinc-300">/api/v/dns-resolve?domain=base.org</span>{" "}
+                <span className="text-zinc-300">/api/v/dns-resolve?host=base.org</span>{" "}
                 <span className="text-zinc-600">+</span>{" "}
                 <span className="text-amber-300/90">PAYMENT-SIGNATURE:</span>{" "}
                 <span className="text-zinc-500">&lt;signed x402 payload&gt;</span>{" "}
