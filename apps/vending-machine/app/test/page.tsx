@@ -27,7 +27,7 @@ export default function TestPage() {
   const [listError, setListError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/config/client", { cache: "no-store" })
+    fetch("/api/config/client")
       .then((r) => r.json())
       .then((j) => setConfig(j as ClientNetworkConfig))
       .catch(() => setOut("Failed to load /api/config/client"));
@@ -35,7 +35,7 @@ export default function TestPage() {
 
   useEffect(() => {
     // Live registry — never a hardcoded list (prevents missing new SKUs like kronos-forecast)
-    fetch("/api/config/test-services", { cache: "no-store" })
+    fetch("/api/config/test-services")
       .then(async (r) => {
         if (!r.ok) throw new Error(`test-services HTTP ${r.status}`);
         return r.json() as Promise<{ services: TestService[] }>;

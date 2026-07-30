@@ -5,8 +5,7 @@ import { VENDING_SERVICES } from "@/lib/services/registry";
  * Live service list for /test dropdown — always matches the registry.
  * Avoids hardcoded slug lists going stale after new SKUs ship.
  */
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 300;
 
 export async function GET() {
   const services = VENDING_SERVICES.filter((s) => s.enabled).map((s) => {
@@ -33,7 +32,7 @@ export async function GET() {
     { services },
     {
       headers: {
-        "Cache-Control": "no-store, max-age=0",
+        "Cache-Control": "public, max-age=0, s-maxage=300, stale-while-revalidate=86400",
       },
     },
   );

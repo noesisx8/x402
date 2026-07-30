@@ -1,14 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import type { Address } from "viem";
 import { CATALOG, FAQS, type CatalogCategory, type CatalogTool } from "@/lib/catalog";
-import { connectBrowserWallet, paidGet, type ClientNetworkConfig } from "@/lib/x402/paid-fetch-client";
+import type { ClientNetworkConfig } from "@/lib/x402/paid-fetch-client";
 
 type Props = {
   baseUrl: string;
   contractAddress: string;
   network: string;
+  clientConfig: ClientNetworkConfig;
 };
 
 type SortKey = "name" | "price";
@@ -24,12 +25,11 @@ function displayUrl(baseUrl: string, endpoint: string) {
   return `${baseUrl}${endpoint}${endpoint.includes("=") ? "…" : ""}`;
 }
 
-export function VendingHome({ baseUrl, contractAddress, network }: Props) {
+export function VendingHome({ baseUrl, contractAddress, network, clientConfig }: Props) {
   const [cat, setCat] = useState<CatalogCategory | "all">("all");
   const [query, setQuery] = useState("");
   const [toast, setToast] = useState("");
   const [address, setAddress] = useState<Address | null>(null);
-  const [config, setConfig] = useState<ClientNetworkConfig | null>(null);
   const [busyPay, setBusyPay] = useState<string | null>(null);
   const [openCard, setOpenCard] = useState<Record<string, "curl" | null>>({});
   const [openRow, setOpenRow] = useState<string | null>(null);
@@ -64,12 +64,6 @@ export function VendingHome({ baseUrl, contractAddress, network }: Props) {
     done();
   }, [showToast]);
 
-  useEffect(() => {
-    fetch("/api/config/client", { cache: "no-store" })
-      .then((r) => r.json() as Promise<ClientNetworkConfig>)
-      .then(setConfig)
-      .catch(() => undefined);
-  }, []);
 
   const connect = useCallback(async () => {
     if (address) {
@@ -77,42 +71,34 @@ export function VendingHome({ baseUrl, contractAddress, network }: Props) {
       showToast("Wallet disconnected");
       return;
     }
-    if (!config) {
-      showToast("Wallet config is still loading");
-      return;
-    }
     try {
-      const next = await connectBrowserWallet(config);
+      const { connectBrowserWallet } = await import("@/lib/x402/paid-fetch-client");
+      const next = await connectBrowserWallet(clientConfig);
       setAddress(next);
       showToast("✓ Wallet connected — USDC on Base");
     } catch (e) {
       showToast(String(e).slice(0, 120));
     }
-  }, [address, config, showToast]);
+  }, [address, clientConfig, showToast]);
 
   const pay = useCallback(async (tool: CatalogTool) => {
-    if (!config) return showToast("Wallet config is still loading");
-    let payer = address;
-    if (!payer) {
-      try {
-        payer = await connectBrowserWallet(config);
-        setAddress(payer);
-      } catch (e) {
-        showToast(String(e).slice(0, 120));
-        return;
-      }
-    }
     setBusyPay(tool.id);
     try {
+      const { connectBrowserWallet, paidGet } = await import("@/lib/x402/paid-fetch-client");
+      let payer = address;
+      if (!payer) {
+        payer = await connectBrowserWallet(clientConfig);
+        setAddress(payer);
+      }
       const url = `${baseUrl}${tool.endpoint}${tool.endpoint.includes("=") ? "demo" : ""}`;
-      const res = await paidGet(url, payer, config);
+      const res = await paidGet(url, payer, clientConfig);
       showToast(res.ok ? `✓ ${tool.name} settled` : `HTTP ${res.status} returned`);
     } catch (e) {
       showToast(String(e).slice(0, 120));
     } finally {
       setBusyPay(null);
     }
-  }, [address, baseUrl, config, showToast]);
+  }, [address, baseUrl, clientConfig, showToast]);
 
   const q = query.trim().toLowerCase();
   const match = (tool: CatalogTool) => `${tool.name} ${tool.id} ${tool.desc}`.toLowerCase().includes(q);
