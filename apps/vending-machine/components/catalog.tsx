@@ -33,7 +33,7 @@ function CurlTerminal({ s }: { s: CatalogService }) {
     <TerminalBox
       title={`x402 call — ${s.slug}`}
       copyText={s.curl}
-      payHref={`/test?tool=${s.slug}`}
+      payHref={`/pay/${s.slug}`}
       payLabel={`Pay ${s.price} →`}
     >
       <p className="break-all">
@@ -59,7 +59,7 @@ function ServiceCard({ s }: { s: CatalogService }) {
         <span className="flex items-center gap-3">
           <span className="text-emerald-400">{s.price} USDC</span>
           <Link
-            href={`/test?tool=${s.slug}`}
+            href={`/pay/${s.slug}`}
             className="rounded-md bg-emerald-500 px-3 py-1 font-sans text-sm font-medium text-emerald-950 transition hover:bg-emerald-400"
           >
             Pay {s.price} →
