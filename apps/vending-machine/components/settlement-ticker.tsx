@@ -6,7 +6,6 @@ type Settlement = {
   slug: string;
   price: string | null;
   ms: number | null;
-  payer: string | null;
   at: string;
 };
 
@@ -30,7 +29,6 @@ function Item({ s }: { s: Settlement }) {
       <span className="text-emerald-400">settled</span>
       <span className="font-mono text-zinc-200">{s.slug}</span>
       {s.price && <span>{s.price} USDC</span>}
-      {s.payer && <span className="font-mono text-zinc-500">{s.payer}</span>}
       {s.ms != null && <span className="text-zinc-500">{s.ms}ms</span>}
       <span className="text-zinc-600">{ago(s.at)}</span>
     </span>

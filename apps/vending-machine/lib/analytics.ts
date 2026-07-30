@@ -36,6 +36,16 @@ export async function logCall(partial: LogInput): Promise<void> {
   buffer.push({ ...partial, at: new Date().toISOString() });
   if (buffer.length > MAX) buffer.shift();
 
+  // Paid deliveries are also persisted cross-isolate so the public ticker works.
+  // Privacy: no payer hints in the shared store — slug + latency + time only.
+  if (partial.event === "200_delivered") {
+    await persistSettlement({
+      slug: partial.slug,
+      ms: partial.ms ?? null,
+      at: new Date().toISOString(),
+    });
+  }
+
   // Structured line for Vercel/runtime log drains
   const line = {
     scope: "x402",
@@ -43,6 +53,72 @@ export async function logCall(partial: LogInput): Promise<void> {
   };
   // eslint-disable-next-line no-console
   console.info(JSON.stringify(line));
+}
+
+/* ------------------------------------------------------------------
+ * Cross-isolate settlement store (Upstash Redis / Vercel KV via REST).
+ * Vercel runs each API route in its own function instance, so the
+ * in-memory ring buffer above is invisible to /api/stats/public.
+ * When Redis env vars are absent, everything falls back to in-memory.
+ * ------------------------------------------------------------------ */
+
+export type SettlementRecord = {
+  slug: string;
+  ms: number | null;
+  at: string;
+};
+
+const REDIS_URL = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
+const REDIS_TOKEN = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
+const SETTLEMENTS_KEY = "x402:settlements";
+const SETTLEMENTS_MAX = 49; // LPUSH newest-first, LTRIM keeps 50
+
+function redisConfigured(): boolean {
+  return Boolean(REDIS_URL && REDIS_TOKEN);
+}
+
+/** Best-effort persist; never throws into the request path. */
+export async function persistSettlement(rec: SettlementRecord): Promise<void> {
+  if (!redisConfigured()) return;
+  try {
+    await fetch(`${REDIS_URL}/pipeline`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${REDIS_TOKEN}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify([
+        ["LPUSH", SETTLEMENTS_KEY, JSON.stringify(rec)],
+        ["LTRIM", SETTLEMENTS_KEY, 0, SETTLEMENTS_MAX],
+      ]),
+    });
+  } catch {
+    // Redis hiccup — analytics must never break a paid response
+  }
+}
+
+/** Newest-first persisted settlements, or null when Redis is not configured. */
+export async function getPersistedSettlements(limit = 20): Promise<SettlementRecord[] | null> {
+  if (!redisConfigured()) return null;
+  try {
+    const res = await fetch(`${REDIS_URL}/lrange/${SETTLEMENTS_KEY}/0/${limit - 1}`, {
+      headers: { authorization: `Bearer ${REDIS_TOKEN}` },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { result?: string[] };
+    return (json.result ?? [])
+      .map((s) => {
+        try {
+          return JSON.parse(s) as SettlementRecord;
+        } catch {
+          return null;
+        }
+      })
+      .filter((r): r is SettlementRecord => r !== null);
+  } catch {
+    return null;
+  }
 }
 
 export function getRecentAnalytics(limit = 50): CallLog[] {
