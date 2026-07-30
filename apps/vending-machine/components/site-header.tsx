@@ -6,7 +6,7 @@ import { CAIP_NETWORK, serverEnv } from "@/lib/env";
 export function SiteHeader() {
   const network = CAIP_NETWORK[serverEnv.X402_NETWORK_MODE];
   return (
-    <header className="sticky top-0 z-10 border-b border-zinc-800/80 bg-zinc-950/90 px-4 py-3 backdrop-blur sm:px-6">
+    <header className="sticky top-0 z-10 border-b border-zinc-800/80 bg-zinc-950 px-4 py-3 sm:px-6">
       <div className="mx-auto flex max-w-5xl items-center gap-3">
         <Link
           href="/"

@@ -32,3 +32,64 @@ body {
     animation: none;
   }
 }
+
+/* ------------------------------------------------------------------
+ * CRT terminal (pip-boy inspired, re-themed for x402 — no Fallout props).
+ * Adapted from Uiverse.io by Gidarx: scanlines, screen sweep, phosphor glow.
+ * ------------------------------------------------------------------ */
+:root {
+  --pip-green: #1aff40;
+  --pip-glow: rgba(26, 255, 64, 0.45);
+  --pip-bg: #020a02;
+}
+
+.crt-screen {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--pip-bg);
+  border: 1px solid rgba(26, 255, 64, 0.16);
+  border-radius: 0.75rem;
+  box-shadow:
+    inset 0 0 40px rgba(0, 0, 0, 0.85),
+    0 0 18px rgba(26, 255, 64, 0.05);
+}
+
+.crt-scanlines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.22) 50%);
+  background-size: 100% 4px;
+}
+
+.crt-screen::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 15%;
+  background: linear-gradient(to bottom, transparent, rgba(26, 255, 64, 0.07), transparent);
+  animation: crt-sweep 7s linear infinite;
+  pointer-events: none;
+}
+
+.crt-text {
+  color: var(--pip-green);
+  text-shadow: 0 0 4px var(--pip-glow);
+}
+
+@keyframes crt-sweep {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(800%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .crt-screen::after {
+    animation: none;
+  }
+}

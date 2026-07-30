@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { CopyButton } from "@/components/copy-button";
+import { Fragment, useMemo, useState } from "react";
+import { TerminalBox } from "@/components/terminal-box";
 
 export type CatalogService = {
   slug: string;
@@ -26,6 +26,25 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: "atom", label: "Utilities" },
 ];
 
+/** HTTP-style request preview inside a CRT terminal box; copy grabs full curl. */
+function CurlTerminal({ s }: { s: CatalogService }) {
+  return (
+    <TerminalBox title={`x402 call — ${s.slug}`} copyText={s.curl}>
+      <p className="break-all">
+        <span className="text-sky-400">GET</span>{" "}
+        <span className="text-zinc-300">{s.path}</span>
+      </p>
+      <p className="break-all">
+        <span className="text-amber-300/90">PAYMENT-SIGNATURE:</span>{" "}
+        <span className="crt-text">&lt;signed x402 payload&gt;</span>
+      </p>
+      <p className="text-zinc-600">
+        → <span className="crt-text">200 OK</span> · settles only on success
+      </p>
+    </TerminalBox>
+  );
+}
+
 function ServiceCard({ s }: { s: CatalogService }) {
   return (
     <article className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
@@ -35,17 +54,9 @@ function ServiceCard({ s }: { s: CatalogService }) {
       </div>
       <p className="mt-1 text-sm text-zinc-400">{s.description}</p>
       <p className="mt-2 font-mono text-xs text-zinc-500">GET {s.path}</p>
-      <details className="mt-3">
-        <summary className="cursor-pointer text-xs text-zinc-500 hover:text-emerald-400">
-          curl example
-        </summary>
-        <div className="mt-2 flex items-start gap-2">
-          <pre className="flex-1 overflow-x-auto rounded bg-zinc-950 p-2 font-mono text-xs text-zinc-400">
-            {s.curl}
-          </pre>
-          <CopyButton text={s.curl} />
-        </div>
-      </details>
+      <div className="mt-3">
+        <CurlTerminal s={s} />
+      </div>
     </article>
   );
 }
@@ -54,6 +65,7 @@ function ServiceCard({ s }: { s: CatalogService }) {
 export function Catalog({ services }: { services: CatalogService[] }) {
   const [filter, setFilter] = useState<Filter>("all");
   const [q, setQ] = useState("");
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const visible = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -126,7 +138,7 @@ export function Catalog({ services }: { services: CatalogService[] }) {
       {atoms.length > 0 && (
         <section className="mt-6">
           <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">
-            Utility atoms
+            Utility atoms — click a row for curl
           </h3>
           <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-800">
             <table className="w-full text-left text-sm">
@@ -139,28 +151,45 @@ export function Catalog({ services }: { services: CatalogService[] }) {
                 </tr>
               </thead>
               <tbody>
-                {atoms.map((s) => (
-                  <tr key={s.slug} className="border-b border-zinc-800/60 last:border-0">
-                    <td className="px-3 py-2">
-                      <span className="font-mono text-zinc-200">{s.slug}</span>
-                      <span className="mt-0.5 block text-xs text-zinc-500">{s.description}</span>
-                    </td>
-                    <td className="px-3 py-2 font-mono text-xs text-zinc-400">{s.params || "—"}</td>
-                    <td className="px-3 py-2 text-emerald-400">{s.price}</td>
-                    <td className="px-3 py-2">
-                      <CopyButton text={s.curl} label="copy curl" />
-                    </td>
-                  </tr>
-                ))}
+                {atoms.map((s) => {
+                  const isOpen = expanded === s.slug;
+                  return (
+                    <Fragment key={s.slug}>
+                      <tr
+                        onClick={() => setExpanded(isOpen ? null : s.slug)}
+                        className="cursor-pointer border-b border-zinc-800/60 transition hover:bg-zinc-900/60"
+                      >
+                        <td className="px-3 py-2">
+                          <span className="font-mono text-zinc-200">{s.slug}</span>
+                          <span className="mt-0.5 block text-xs text-zinc-500">
+                            {s.description}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 font-mono text-xs text-zinc-400">
+                          {s.params || "—"}
+                        </td>
+                        <td className="px-3 py-2 text-emerald-400">{s.price}</td>
+                        <td className="px-3 py-2 text-xs text-zinc-500">
+                          {isOpen ? "hide ▴" : "curl ▾"}
+                        </td>
+                      </tr>
+                      {isOpen && (
+                        <tr className="border-b border-zinc-800/60">
+                          <td colSpan={4} className="bg-zinc-950/60 px-3 py-3">
+                            <CurlTerminal s={s} />
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         </section>
       )}
 
-      {visible.length === 0 && (
-        <p className="mt-6 text-sm text-zinc-500">No tools match “{q}”.</p>
-      )}
+      {visible.length === 0 && <p className="mt-6 text-sm text-zinc-500">No tools match “{q}”.</p>}
     </div>
   );
 }
