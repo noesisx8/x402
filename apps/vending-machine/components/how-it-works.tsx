@@ -57,15 +57,15 @@ function FlowCard({ step }: { step: Step }) {
         className="absolute -inset-1 -z-10 rounded-xl bg-gradient-to-b from-emerald-500/15 via-emerald-500/5 to-transparent opacity-0 blur-sm transition-opacity duration-500 group-hover:opacity-100"
       />
 
-      <div className="relative h-full rounded-xl border border-zinc-800 bg-zinc-900/60 p-5 transition-all duration-500 ease-out group-hover:-translate-y-2 group-hover:border-emerald-500/50 group-hover:bg-zinc-900 group-hover:shadow-[0_24px_60px_-16px_rgba(16,185,129,0.45)]">
+      <div className="relative h-full rounded-xl border border-gray-200 bg-gray-50/80 p-5 transition-all duration-500 ease-out group-hover:-translate-y-2 group-hover:border-emerald-500/50 group-hover:bg-white group-hover:shadow-[0_24px_60px_-16px_rgba(16,185,129,0.25)] dark:border-zinc-800 dark:bg-zinc-900/60 dark:group-hover:bg-zinc-900 dark:group-hover:shadow-[0_24px_60px_-16px_rgba(16,185,129,0.45)]">
         <div className="flex items-center justify-between">
-          <span className="rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 font-mono text-xs text-emerald-400">
+          <span className="rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 font-mono text-xs text-emerald-700 dark:text-emerald-400">
             {step.chip}
           </span>
           <span className={`font-mono text-xs ${step.tagClass}`}>{step.tag}</span>
         </div>
-        <h3 className="mt-3 font-medium text-zinc-100">{step.title}</h3>
-        <div className="mt-1 text-sm text-zinc-400">{step.body}</div>
+        <h3 className="mt-3 font-medium text-gray-900 dark:text-zinc-100">{step.title}</h3>
+        <div className="mt-1 text-sm text-gray-600 dark:text-zinc-400">{step.body}</div>
       </div>
     </article>
   );
@@ -76,13 +76,13 @@ export function HowItWorks({ network }: { network: string }) {
     {
       chip: "01",
       tag: "402",
-      tagClass: "text-amber-300",
+      tagClass: "text-amber-600 dark:text-amber-300",
       title: "Request an endpoint",
       body: (
         <>
           Hit any tool URL. If unpaid, the server responds{" "}
-          <span className="font-mono text-zinc-300">402 Payment Required</span> with a{" "}
-          <span className="font-mono text-zinc-300">Payment-Required</span> header carrying the
+          <span className="font-mono text-gray-700 dark:text-zinc-300">402 Payment Required</span> with a{" "}
+          <span className="font-mono text-gray-700 dark:text-zinc-300">Payment-Required</span> header carrying the
           exact USDC price, pay-to address, and network.
         </>
       ),
@@ -91,12 +91,12 @@ export function HowItWorks({ network }: { network: string }) {
     {
       chip: "02",
       tag: "EIP-3009",
-      tagClass: "text-sky-400",
+      tagClass: "text-sky-600 dark:text-sky-400",
       title: "Sign with your wallet",
       body: (
         <>
           Your wallet (or agent) signs a USDC{" "}
-          <span className="font-mono text-zinc-300">transferWithAuthorization</span> on {network}.
+          <span className="font-mono text-gray-700 dark:text-zinc-300">transferWithAuthorization</span> on {network}.
           No account creation, no API keys, no custody.
         </>
       ),
@@ -110,7 +110,7 @@ export function HowItWorks({ network }: { network: string }) {
       body: (
         <>
           Resend the request with the{" "}
-          <span className="font-mono text-zinc-300">PAYMENT-SIGNATURE</span> header. The facilitator
+          <span className="font-mono text-gray-700 dark:text-zinc-300">PAYMENT-SIGNATURE</span> header. The facilitator
           verifies and settles on-chain; data returns in the same response.
         </>
       ),
@@ -127,8 +127,8 @@ export function HowItWorks({ network }: { network: string }) {
         <FlowConnector delay="2.1s" />
         <FlowCard step={steps[2]} />
       </div>
-      <p className="mt-5 text-center font-mono text-xs text-zinc-600">
-        <span className="text-emerald-500/70">●</span> watch the packet ride the settlement path —
+      <p className="mt-5 text-center font-mono text-xs text-gray-400 dark:text-zinc-600">
+        <span className="text-emerald-600/70 dark:text-emerald-500/70">●</span> watch the packet ride the settlement path —
         request → signature → settled
       </p>
     </div>

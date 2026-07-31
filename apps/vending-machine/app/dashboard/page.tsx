@@ -98,8 +98,8 @@ function AuthForm({ onAuth }: { onAuth: (token: string) => void }) {
   return (
     <main className="mx-auto max-w-sm px-6 py-24">
       <div className="text-center">
-        <h1 className="text-2xl font-semibold text-zinc-100">x402 Dashboard</h1>
-        <p className="mt-2 text-sm text-zinc-500">
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-zinc-100">x402 Dashboard</h1>
+        <p className="mt-2 text-sm text-gray-500 dark:text-zinc-500">
           Enter your analytics token to access the admin dashboard.
         </p>
       </div>
@@ -109,9 +109,9 @@ function AuthForm({ onAuth }: { onAuth: (token: string) => void }) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="ANALYTICS_TOKEN"
-          className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none"
+          className="w-full rounded-md border border-gray-200 bg-white/60 px-3 py-2 text-sm text-gray-800 placeholder:text-gray-400 focus:border-emerald-500/60 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:placeholder:text-zinc-600"
         />
-        {error && <p className="text-xs text-red-400">{error}</p>}
+        {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
         <button
           type="submit"
           className="w-full rounded-md bg-emerald-500 px-4 py-2 text-sm font-medium text-emerald-950 transition hover:bg-emerald-400"
@@ -119,7 +119,7 @@ function AuthForm({ onAuth }: { onAuth: (token: string) => void }) {
           Access Dashboard
         </button>
       </form>
-      <p className="mt-4 text-center text-xs text-zinc-600">
+      <p className="mt-4 text-center text-xs text-gray-400 dark:text-zinc-600">
         Set ANALYTICS_TOKEN in your environment variables to generate a token.
       </p>
     </main>
@@ -174,16 +174,16 @@ export default function DashboardPage() {
   if (error && !data) {
     return (
       <main className="mx-auto max-w-6xl px-6 py-12">
-        <h1 className="text-2xl font-semibold text-zinc-100">x402 Dashboard</h1>
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-zinc-100">x402 Dashboard</h1>
         <div className="mt-6 rounded-lg border border-red-500/30 bg-red-500/5 p-4">
-          <p className="text-sm text-red-400">Failed to load: {error}</p>
+          <p className="text-sm text-red-600 dark:text-red-400">Failed to load: {error}</p>
           <button
             type="button"
             onClick={() => {
               localStorage.removeItem(TOKEN_KEY);
               setToken(null);
             }}
-            className="mt-2 rounded-md bg-zinc-800 px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-700"
+            className="mt-2 rounded-md bg-gray-100 px-3 py-1.5 text-xs text-gray-800 hover:bg-gray-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
           >
             Sign out
           </button>
@@ -195,8 +195,8 @@ export default function DashboardPage() {
   if (!data) {
     return (
       <main className="mx-auto max-w-6xl px-6 py-12">
-        <h1 className="text-2xl font-semibold text-zinc-100">x402 Dashboard</h1>
-        <p className="mt-4 text-sm text-zinc-500">Loading dashboard…</p>
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-zinc-100">x402 Dashboard</h1>
+        <p className="mt-4 text-sm text-gray-500 dark:text-zinc-500">Loading dashboard…</p>
       </main>
     );
   }
@@ -205,13 +205,13 @@ export default function DashboardPage() {
     <main className="mx-auto max-w-6xl px-6 py-12">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-zinc-100">x402 Dashboard</h1>
-          <p className="mt-1 text-sm text-zinc-500">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-zinc-100">x402 Dashboard</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-zinc-500">
             Real-time monitoring · {data.network.mode} · {data.services.total} services
           </p>
         </div>
         <div className="text-right">
-          <span className="text-xs text-zinc-600">
+          <span className="text-xs text-gray-400 dark:text-zinc-600">
             {lastUpdate ? `Updated ${lastUpdate.toLocaleTimeString()}` : "Loading…"}
           </span>
           <div className="mt-1 flex items-center gap-2">
@@ -220,7 +220,7 @@ export default function DashboardPage() {
                 data.network.blockchainConfigured ? "bg-emerald-500" : "bg-amber-500"
               }`}
             />
-            <span className="text-xs text-zinc-500">
+            <span className="text-xs text-gray-500 dark:text-zinc-500">
               {data.network.blockchainConfigured ? "Blockchain connected" : "Blockchain offline"}
             </span>
           </div>
@@ -230,7 +230,7 @@ export default function DashboardPage() {
               localStorage.removeItem(TOKEN_KEY);
               setToken(null);
             }}
-            className="mt-2 text-xs text-zinc-600 underline hover:text-zinc-400"
+            className="mt-2 text-xs text-gray-500 underline hover:text-gray-700 dark:text-zinc-500 dark:hover:text-zinc-300"
           >
             Sign out
           </button>

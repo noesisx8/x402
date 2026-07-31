@@ -83,25 +83,29 @@ async function queryUsdcTransfers(
     const json = (await res.json()) as {
       status?: string;
       message?: string;
-      result?: Array<{
-        hash: string;
-        from: string;
-        to: string;
-        value: string;
-        tokenDecimal: string;
-        timeStamp: string;
-        blockNumber: string;
-        gasPrice: string;
-        confirmations: string;
-      }>;
+      /** Array on success; a string with the error detail on failure. */
+      result?:
+        | Array<{
+            hash: string;
+            from: string;
+            to: string;
+            value: string;
+            tokenDecimal: string;
+            timeStamp: string;
+            blockNumber: string;
+            gasPrice: string;
+            confirmations: string;
+          }>
+        | string;
     };
 
     if (json.status !== "1" || !Array.isArray(json.result)) {
-      // BaseScan returns status "0" with message when no txs or error
+      const detail = typeof json.result === "string" ? json.result : "";
+      // Etherscan returns status "0" when the address simply has no txs
       if (json.message?.toLowerCase().includes("no transactions")) {
         return { transfers: [], source: "basescan-empty" };
       }
-      throw new Error(`basescan_error: ${json.message ?? "unknown"}`);
+      throw new Error(`basescan_error: ${json.message ?? "unknown"} ${detail}`.trim());
     }
 
     const decimals = 6;

@@ -60,13 +60,13 @@ export function BarChart({
         const pct = max > 0 ? (item.value / max) * 100 : 0;
         return (
           <div key={item.label} className="flex items-center gap-3">
-            <span className="w-24 shrink-0 truncate text-xs text-zinc-400">{item.label}</span>
-            <div className="relative h-5 flex-1 rounded bg-zinc-900">
+            <span className="w-24 shrink-0 truncate text-xs text-gray-500 dark:text-zinc-400">{item.label}</span>
+            <div className="relative h-5 flex-1 rounded bg-gray-100 dark:bg-zinc-900">
               <div
                 className="absolute inset-y-0 left-0 rounded bg-emerald-500/60 transition-all"
                 style={{ width: `${pct}%` }}
               />
-              <span className="absolute inset-y-0 right-2 flex items-center text-xs text-zinc-300">
+              <span className="absolute inset-y-0 right-2 flex items-center text-xs text-gray-700 dark:text-zinc-300">
                 {item.value}
               </span>
             </div>

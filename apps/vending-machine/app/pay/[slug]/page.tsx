@@ -49,16 +49,16 @@ export default async function PayPage({ params }: { params: Promise<Params> }) {
     <>
       <main className="mx-auto max-w-3xl px-6 py-12">
         <p className="text-sm">
-          <Link className="text-emerald-400 underline" href="/#tools">
+          <Link className="text-emerald-600 underline dark:text-emerald-400" href="/#tools">
             ← All tools
           </Link>
         </p>
         <div className="mt-3 flex flex-wrap items-baseline justify-between gap-2">
-          <h1 className="text-2xl font-semibold">{svc.name}</h1>
-          <span className="text-xl text-emerald-400">{svc.price} USDC</span>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-zinc-100">{svc.name}</h1>
+          <span className="text-xl text-emerald-600 dark:text-emerald-400">{svc.price} USDC</span>
         </div>
-        <p className="mt-2 text-sm text-zinc-400">{svc.description}</p>
-        <p className="mt-1 text-xs text-zinc-500">
+        <p className="mt-2 text-sm text-gray-600 dark:text-zinc-400">{svc.description}</p>
+        <p className="mt-1 text-xs text-gray-500 dark:text-zinc-500">
           {svc.category ?? "atom"} · settled in USDC on {network} · failed calls never settle
         </p>
 
@@ -76,20 +76,20 @@ export default async function PayPage({ params }: { params: Promise<Params> }) {
         </div>
 
         <div className="mt-8">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-zinc-500">
             Prefer curl or an agent?
           </h2>
           <div className="mt-2">
             <TerminalBox title={`x402 call — ${svc.slug}`} copyText={curl}>
               <p className="break-all">
-                <span className="text-sky-400">GET</span>{" "}
-                <span className="text-zinc-300">{path}</span>
+                <span className="text-sky-600 dark:text-sky-400">GET</span>{" "}
+                <span className="text-gray-700 dark:text-zinc-300">{path}</span>
               </p>
               <p className="break-all">
-                <span className="text-amber-300/90">PAYMENT-SIGNATURE:</span>{" "}
+                <span className="text-amber-600/90 dark:text-amber-300/90">PAYMENT-SIGNATURE:</span>{" "}
                 <span className="crt-text">&lt;signed x402 payload&gt;</span>
               </p>
-              <p className="text-zinc-600">
+              <p className="text-gray-400 dark:text-zinc-600">
                 → <span className="crt-text">200 OK</span> · settles only on success
               </p>
             </TerminalBox>
@@ -97,10 +97,10 @@ export default async function PayPage({ params }: { params: Promise<Params> }) {
         </div>
 
         {svc.slug === "kronos-forecast" && (
-          <p className="mt-6 text-xs text-zinc-500">
-            <strong className="text-zinc-400">Research only.</strong> Kronos outputs are not
+          <p className="mt-6 text-xs text-gray-500 dark:text-zinc-500">
+            <strong className="text-gray-700 dark:text-zinc-400">Research only.</strong> Kronos outputs are not
             financial advice or trading signals.{" "}
-            <Link className="text-emerald-400 underline" href="/disclaimer">
+            <Link className="text-emerald-600 underline dark:text-emerald-400" href="/disclaimer">
               Full disclaimer →
             </Link>
           </p>

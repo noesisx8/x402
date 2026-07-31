@@ -127,25 +127,25 @@ export default function TestPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
-      <h1 className="text-2xl font-semibold">x402 paid test</h1>
-      <p className="mt-2 text-sm text-zinc-400">
-        Step 1: unpaid GET expects <strong className="text-amber-400">402</strong>. Step 2: connect
+      <h1 className="text-2xl font-semibold text-gray-900 dark:text-zinc-100">x402 paid test</h1>
+      <p className="mt-2 text-sm text-gray-600 dark:text-zinc-400">
+        Step 1: unpaid GET expects <strong className="text-amber-600 dark:text-amber-400">402</strong>. Step 2: connect
         wallet on {config?.chainName ?? "…"} with USDC, then{" "}
-        <strong className="text-emerald-400">Pay &amp; GET</strong> for{" "}
-        <strong className="text-emerald-400">200</strong> + JSON.
+        <strong className="text-emerald-600 dark:text-emerald-400">Pay &amp; GET</strong> for{" "}
+        <strong className="text-emerald-600 dark:text-emerald-400">200</strong> + JSON.
       </p>
       {config && (
-        <p className="mt-1 text-xs text-zinc-500">
+        <p className="mt-1 text-xs text-gray-500 dark:text-zinc-500">
           Server network: {config.caipNetwork} — {config.hint}
         </p>
       )}
       {listError && (
-        <p className="mt-2 text-sm text-red-400">Service list error: {listError}</p>
+        <p className="mt-2 text-sm text-red-600 dark:text-red-400">Service list error: {listError}</p>
       )}
-      <label className="mt-6 block text-sm">
+      <label className="mt-6 block text-sm text-gray-800 dark:text-zinc-200">
         Service ({services.length} from live registry)
         <select
-          className="mt-1 w-full rounded border border-zinc-700 bg-zinc-900 p-2"
+          className="mt-1 w-full rounded border border-gray-200 bg-white/60 p-2 text-gray-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
           value={slug}
           disabled={services.length === 0}
           onChange={(e) => {
@@ -165,15 +165,15 @@ export default function TestPage() {
         </select>
       </label>
       {selected && (
-        <p className="mt-1 text-xs text-zinc-500">
+        <p className="mt-1 text-xs text-gray-500 dark:text-zinc-500">
           {selected.name ?? selected.slug}
           {selected.category ? ` · ${selected.category}` : ""}
         </p>
       )}
-      <label className="mt-4 block text-sm">
+      <label className="mt-4 block text-sm text-gray-800 dark:text-zinc-200">
         Query string
         <input
-          className="mt-1 w-full rounded border border-zinc-700 bg-zinc-900 p-2 font-mono text-xs"
+          className="mt-1 w-full rounded border border-gray-200 bg-white/60 p-2 font-mono text-xs text-gray-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
           value={qs}
           onChange={(e) => setQs(e.target.value)}
         />
@@ -183,7 +183,7 @@ export default function TestPage() {
           type="button"
           disabled={busy || !slug}
           onClick={callUnpaid}
-          className="rounded border border-zinc-600 px-4 py-2 text-sm hover:bg-zinc-800 disabled:opacity-50"
+          className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
         >
           GET (no payment) — always 402
         </button>
@@ -191,7 +191,7 @@ export default function TestPage() {
           type="button"
           disabled={busy || !config}
           onClick={connect}
-          className="rounded bg-blue-600 px-4 py-2 text-sm font-medium hover:bg-blue-500 disabled:opacity-50"
+          className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
         >
           {address ? "Reconnect wallet" : "Connect wallet"}
         </button>
@@ -199,38 +199,38 @@ export default function TestPage() {
           type="button"
           disabled={busy || !address || !slug}
           onClick={callPaid}
-          className="rounded bg-emerald-600 px-4 py-2 text-sm font-medium hover:bg-emerald-500 disabled:opacity-50"
+          className="rounded bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
         >
           Pay &amp; GET
         </button>
       </div>
       {address && (
-        <p className="mt-2 font-mono text-xs text-zinc-500">
+        <p className="mt-2 font-mono text-xs text-gray-500 dark:text-zinc-500">
           Payer: {address.slice(0, 6)}…{address.slice(-4)}
         </p>
       )}
-      <pre className="mt-6 overflow-auto rounded border border-zinc-800 bg-black/40 p-4 text-xs whitespace-pre-wrap">
+      <pre className="mt-6 overflow-auto rounded border border-gray-200 bg-gray-50/80 p-4 text-xs whitespace-pre-wrap text-gray-800 dark:border-zinc-800 dark:bg-black/40 dark:text-zinc-200">
         {out}
       </pre>
       {slug === "kronos-forecast" && (
-        <p className="mt-4 text-xs text-zinc-500">
-          <strong className="text-zinc-400">Research only.</strong> Kronos outputs are not financial
+        <p className="mt-4 text-xs text-gray-500 dark:text-zinc-500">
+          <strong className="text-gray-700 dark:text-zinc-400">Research only.</strong> Kronos outputs are not financial
           advice or trading signals.{" "}
-          <a className="text-emerald-400 underline" href="/disclaimer">
+          <a className="text-emerald-600 underline dark:text-emerald-400" href="/disclaimer">
             Full disclaimer →
           </a>
         </p>
       )}
-      <p className="mt-8 text-xs text-zinc-600">
-        <a className="underline hover:text-zinc-400" href="/terms">
+      <p className="mt-8 text-xs text-gray-400 dark:text-zinc-600">
+        <a className="underline hover:text-gray-600 dark:hover:text-zinc-400" href="/terms">
           Terms
         </a>
         {" · "}
-        <a className="underline hover:text-zinc-400" href="/privacy">
+        <a className="underline hover:text-gray-600 dark:hover:text-zinc-400" href="/privacy">
           Privacy
         </a>
         {" · "}
-        <a className="underline hover:text-zinc-400" href="/disclaimer">
+        <a className="underline hover:text-gray-600 dark:hover:text-zinc-400" href="/disclaimer">
           Research Disclaimer
         </a>
       </p>

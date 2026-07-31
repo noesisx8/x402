@@ -96,21 +96,21 @@ export function PayClient({ service }: { service: PayService }) {
 
   return (
     <div>
-      <label className="block text-sm">
+      <label className="block text-sm text-gray-800 dark:text-zinc-200">
         Query string
         <input
-          className="mt-1 w-full rounded border border-zinc-700 bg-zinc-900 p-2 font-mono text-xs"
+          className="mt-1 w-full rounded border border-gray-200 bg-white/60 p-2 font-mono text-xs text-gray-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
           value={qs}
           onChange={(e) => setQs(e.target.value)}
         />
       </label>
-      <p className="mt-1 font-mono text-xs text-zinc-500">GET {url}</p>
+      <p className="mt-1 font-mono text-xs text-gray-500 dark:text-zinc-500">GET {url}</p>
       <div className="mt-4 flex flex-wrap gap-2">
         <button
           type="button"
           disabled={busy}
           onClick={callUnpaid}
-          className="rounded border border-zinc-600 px-4 py-2 text-sm hover:bg-zinc-800 disabled:opacity-50"
+          className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
         >
           GET (no payment) — always 402
         </button>
@@ -118,7 +118,7 @@ export function PayClient({ service }: { service: PayService }) {
           type="button"
           disabled={busy || !config}
           onClick={connect}
-          className="rounded bg-blue-600 px-4 py-2 text-sm font-medium hover:bg-blue-500 disabled:opacity-50"
+          className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
         >
           {address ? "Reconnect wallet" : "Connect wallet"}
         </button>
@@ -126,17 +126,17 @@ export function PayClient({ service }: { service: PayService }) {
           type="button"
           disabled={busy || !address}
           onClick={callPaid}
-          className="rounded bg-emerald-600 px-4 py-2 text-sm font-medium hover:bg-emerald-500 disabled:opacity-50"
+          className="rounded bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
         >
           Pay {service.price} &amp; GET
         </button>
       </div>
       {address && (
-        <p className="mt-2 font-mono text-xs text-zinc-500">
+        <p className="mt-2 font-mono text-xs text-gray-500 dark:text-zinc-500">
           Payer: {address.slice(0, 6)}…{address.slice(-4)}
         </p>
       )}
-      <pre className="mt-6 overflow-auto whitespace-pre-wrap rounded border border-zinc-800 bg-black/40 p-4 text-xs">
+      <pre className="mt-6 overflow-auto whitespace-pre-wrap rounded border border-gray-200 bg-gray-50/80 p-4 text-xs text-gray-800 dark:border-zinc-800 dark:bg-black/40 dark:text-zinc-200">
         {out || "Connect a wallet with USDC, then Pay & GET."}
       </pre>
     </div>

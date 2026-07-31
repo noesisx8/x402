@@ -25,12 +25,12 @@ function ago(iso: string): string {
 
 function Item({ s }: { s: Settlement }) {
   return (
-    <span className="mx-4 inline-flex items-center gap-2 whitespace-nowrap text-xs text-zinc-400">
-      <span className="text-emerald-400">settled</span>
-      <span className="font-mono text-zinc-200">{s.slug}</span>
+    <span className="mx-4 inline-flex items-center gap-2 whitespace-nowrap text-xs text-gray-600 dark:text-zinc-400">
+      <span className="text-emerald-600 dark:text-emerald-400">settled</span>
+      <span className="font-mono text-gray-800 dark:text-zinc-200">{s.slug}</span>
       {s.price && <span>{s.price} USDC</span>}
-      {s.ms != null && <span className="text-zinc-500">{s.ms}ms</span>}
-      <span className="text-zinc-600">{ago(s.at)}</span>
+      {s.ms != null && <span className="text-gray-400 dark:text-zinc-500">{s.ms}ms</span>}
+      <span className="text-gray-400 dark:text-zinc-600">{ago(s.at)}</span>
     </span>
   );
 }
@@ -68,11 +68,11 @@ export function SettlementTicker() {
   return (
     <div
       aria-live="polite"
-      className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900/40 px-2 py-2"
+      className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50/60 px-2 py-2 dark:border-zinc-800 dark:bg-zinc-900/40"
     >
       {items.length === 0 ? (
-        <p className="px-2 text-xs text-zinc-500">
-          <span className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-zinc-600 align-middle" />
+        <p className="px-2 text-xs text-gray-500 dark:text-zinc-500">
+          <span className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-gray-400 align-middle dark:bg-zinc-600" />
           No paid calls observed by this edge isolate yet — the feed updates automatically as
           settlements land.
         </p>

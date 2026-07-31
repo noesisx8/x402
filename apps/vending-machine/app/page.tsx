@@ -46,12 +46,12 @@ function toCatalogService(
 
 function Faq({ q, children }: { q: string; children: React.ReactNode }) {
   return (
-    <details className="group rounded-lg border border-zinc-800 bg-zinc-900/40 px-4 py-3">
-      <summary className="cursor-pointer list-none text-sm font-medium text-zinc-200 marker:hidden">
+    <details className="group rounded-lg border border-gray-200 bg-gray-50/60 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900/40">
+      <summary className="cursor-pointer list-none text-sm font-medium text-gray-800 marker:hidden dark:text-zinc-200">
         <span className="mr-2 inline-block transition group-open:rotate-90">▶</span>
         {q}
       </summary>
-      <p className="mt-2 text-sm text-zinc-400">{children}</p>
+      <p className="mt-2 text-sm text-gray-600 dark:text-zinc-400">{children}</p>
     </details>
   );
 }
@@ -68,13 +68,13 @@ export default function HomePage() {
     <>
       <main className="mx-auto max-w-5xl px-6 py-12">
         {/* Hero */}
-        <p className="text-sm uppercase tracking-widest text-emerald-400">
+        <p className="text-sm uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
           x402 micropayments · settled on Base
         </p>
-        <h1 className="mt-2 text-3xl font-semibold">
+        <h1 className="mt-2 text-3xl font-semibold text-gray-900 dark:text-zinc-100">
           Agent-grade APIs. One USDC payment. Live settlement.
         </h1>
-        <p className="mt-3 max-w-2xl text-zinc-400">
+        <p className="mt-3 max-w-2xl text-gray-600 dark:text-zinc-400">
           {enabled.length} pay-per-call endpoints for agents and developers. No accounts, no API
           keys, no subscriptions — your wallet signature is the auth. Every endpoint is a plain GET,
           priced in USDC on {network}, and failed calls never settle.
@@ -86,24 +86,24 @@ export default function HomePage() {
           >
             Browse {enabled.length} tools ↓
           </a>
-          <Link className="text-emerald-400 underline" href="/api/openapi.json">
+          <Link className="text-emerald-600 underline dark:text-emerald-400" href="/api/openapi.json">
             OpenAPI spec ↗
           </Link>
-          <a className="text-emerald-400 underline" href={GITHUB_URL}>
+          <a className="text-emerald-600 underline dark:text-emerald-400" href={GITHUB_URL}>
             GitHub ↗
           </a>
-          <Link className="text-emerald-400 underline" href="/test">
+          <Link className="text-emerald-600 underline dark:text-emerald-400" href="/test">
             Live client test →
           </Link>
         </div>
         {payToReal && (
-          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-zinc-500">
             <span className="font-mono">settlement address {truncateAddress(payTo)}</span>
             <CopyButton text={payTo} />
-            <a className="text-emerald-400 underline" href={basescanAddressUrl(payTo)}>
+            <a className="text-emerald-600 underline dark:text-emerald-400" href={basescanAddressUrl(payTo)}>
               View on Basescan ↗
             </a>
-            <span className="rounded border border-emerald-500/40 px-1.5 py-0.5 text-emerald-400">
+            <span className="rounded border border-emerald-500/40 px-1.5 py-0.5 text-emerald-600 dark:text-emerald-400">
               settlement guard active
             </span>
           </div>
@@ -112,30 +112,30 @@ export default function HomePage() {
         {/* Live settlement ticker */}
         <section className="mt-10" aria-label="Recent settlements">
           <div className="mb-2 flex items-baseline justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-zinc-500">
               Recent settlements
             </h2>
-            <span className="text-xs text-zinc-600">live · refreshes every 15s</span>
+            <span className="text-xs text-gray-400 dark:text-zinc-600">live · refreshes every 15s</span>
           </div>
           <SettlementTicker />
         </section>
 
         {/* How it works */}
         <section id="how" className="mt-14 scroll-mt-20">
-          <h2 className="text-xl font-semibold text-zinc-100">How it works</h2>
-          <p className="mt-1 text-sm text-zinc-500">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-zinc-100">How it works</h2>
+          <p className="mt-1 text-sm text-gray-500 dark:text-zinc-500">
             Pay → prove → call. Three steps, no signup.
           </p>
           <HowItWorks network={network} />
           <div className="mt-4">
             <TerminalBox title="x402 handshake — dns-resolve">
               <p className="break-all">
-                <span className="text-sky-400">GET</span>{" "}
-                <span className="text-zinc-300">/api/v/dns-resolve?host=base.org</span>{" "}
-                <span className="text-zinc-600">→</span>{" "}
-                <span className="text-amber-300">402 Payment Required</span>
+                <span className="text-sky-600 dark:text-sky-400">GET</span>{" "}
+                <span className="text-gray-700 dark:text-zinc-300">/api/v/dns-resolve?host=base.org</span>{" "}
+                <span className="text-gray-400 dark:text-zinc-600">→</span>{" "}
+                <span className="text-amber-600 dark:text-amber-300">402 Payment Required</span>
               </p>
-              <p className="break-all pl-4 text-zinc-500">
+              <p className="break-all pl-4 text-gray-500 dark:text-zinc-500">
                 Payment-Required: {"{ "}price: "$0.003", payTo: "
                 {payToReal ? truncateAddress(payTo) : "<pay-to>"}", network: "{network}"{" }"}
               </p>
@@ -144,13 +144,13 @@ export default function HomePage() {
                 on-chain
               </p>
               <p className="mt-2 break-all">
-                <span className="text-sky-400">GET</span>{" "}
-                <span className="text-zinc-300">/api/v/dns-resolve?host=base.org</span>{" "}
-                <span className="text-zinc-600">+</span>{" "}
-                <span className="text-amber-300/90">PAYMENT-SIGNATURE:</span>{" "}
-                <span className="text-zinc-500">&lt;signed x402 payload&gt;</span>{" "}
-                <span className="text-zinc-600">→</span> <span className="crt-text">200 OK</span>{" "}
-                <span className="text-zinc-500">{`{ "A": ["…"], "AAAA": ["…"] }`}</span>
+                <span className="text-sky-600 dark:text-sky-400">GET</span>{" "}
+                <span className="text-gray-700 dark:text-zinc-300">/api/v/dns-resolve?host=base.org</span>{" "}
+                <span className="text-gray-400 dark:text-zinc-600">+</span>{" "}
+                <span className="text-amber-600/90 dark:text-amber-300/90">PAYMENT-SIGNATURE:</span>{" "}
+                <span className="text-gray-400 dark:text-zinc-500">&lt;signed x402 payload&gt;</span>{" "}
+                <span className="text-gray-400 dark:text-zinc-600">→</span> <span className="crt-text">200 OK</span>{" "}
+                <span className="text-gray-400 dark:text-zinc-500">{`{ "A": ["…"], "AAAA": ["…"] }`}</span>
               </p>
             </TerminalBox>
           </div>
@@ -158,8 +158,8 @@ export default function HomePage() {
 
         {/* Catalog */}
         <section id="tools" className="mt-14 scroll-mt-20">
-          <h2 className="text-xl font-semibold text-zinc-100">Tools &amp; bundles</h2>
-          <p className="mt-1 text-sm text-zinc-500">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-zinc-100">Tools &amp; bundles</h2>
+          <p className="mt-1 text-sm text-gray-500 dark:text-zinc-500">
             All endpoints are GET · paid via x402 · priced in USDC on Base — shown once here instead
             of on every card.
           </p>
@@ -170,18 +170,18 @@ export default function HomePage() {
 
         {/* Trust / on-chain proof */}
         <section id="proof" className="mt-14 scroll-mt-20">
-          <h2 className="text-xl font-semibold text-zinc-100">On-chain proof, not promises</h2>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-zinc-100">On-chain proof, not promises</h2>
           <dl className="mt-4 grid gap-3 sm:grid-cols-2">
             {payToReal && (
-              <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-                <dt className="text-xs uppercase tracking-wider text-zinc-500">
+              <div className="rounded-lg border border-gray-200 bg-gray-50/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
+                <dt className="text-xs uppercase tracking-wider text-gray-500 dark:text-zinc-500">
                   Settlement address
                 </dt>
-                <dd className="mt-1 flex items-center gap-2 font-mono text-sm text-zinc-200">
+                <dd className="mt-1 flex items-center gap-2 font-mono text-sm text-gray-800 dark:text-zinc-200">
                   {truncateAddress(payTo)}
                   <CopyButton text={payTo} />
                   <a
-                    className="font-sans text-xs text-emerald-400 underline"
+                    className="font-sans text-xs text-emerald-600 underline dark:text-emerald-400"
                     href={basescanAddressUrl(payTo)}
                   >
                     Basescan ↗
@@ -189,24 +189,24 @@ export default function HomePage() {
                 </dd>
               </div>
             )}
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-              <dt className="text-xs uppercase tracking-wider text-zinc-500">Network</dt>
-              <dd className="mt-1 font-mono text-sm text-zinc-200">{network}</dd>
+            <div className="rounded-lg border border-gray-200 bg-gray-50/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
+              <dt className="text-xs uppercase tracking-wider text-gray-500 dark:text-zinc-500">Network</dt>
+              <dd className="mt-1 font-mono text-sm text-gray-800 dark:text-zinc-200">{network}</dd>
             </div>
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-              <dt className="text-xs uppercase tracking-wider text-zinc-500">Currency</dt>
-              <dd className="mt-1 font-mono text-sm text-zinc-200">USDC</dd>
+            <div className="rounded-lg border border-gray-200 bg-gray-50/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
+              <dt className="text-xs uppercase tracking-wider text-gray-500 dark:text-zinc-500">Currency</dt>
+              <dd className="mt-1 font-mono text-sm text-gray-800 dark:text-zinc-200">USDC</dd>
             </div>
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-              <dt className="text-xs uppercase tracking-wider text-zinc-500">Failed calls</dt>
-              <dd className="mt-1 text-sm text-zinc-200">
+            <div className="rounded-lg border border-gray-200 bg-gray-50/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
+              <dt className="text-xs uppercase tracking-wider text-gray-500 dark:text-zinc-500">Failed calls</dt>
+              <dd className="mt-1 text-sm text-gray-800 dark:text-zinc-200">
                 never settle — payment finalizes only when the handler succeeds
               </dd>
             </div>
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-              <dt className="text-xs uppercase tracking-wider text-zinc-500">Source</dt>
+            <div className="rounded-lg border border-gray-200 bg-gray-50/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
+              <dt className="text-xs uppercase tracking-wider text-gray-500 dark:text-zinc-500">Source</dt>
               <dd className="mt-1 text-sm">
-                <a className="text-emerald-400 underline" href={GITHUB_URL}>
+                <a className="text-emerald-600 underline dark:text-emerald-400" href={GITHUB_URL}>
                   github ↗
                 </a>
               </dd>
@@ -216,7 +216,7 @@ export default function HomePage() {
 
         {/* FAQ */}
         <section id="faq" className="mt-14 scroll-mt-20">
-          <h2 className="text-xl font-semibold text-zinc-100">Questions, answered</h2>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-zinc-100">Questions, answered</h2>
           <div className="mt-4 grid gap-3">
             <Faq q="What is x402?">
               x402 is an open payment protocol that revives the HTTP 402 Payment Required status
@@ -254,36 +254,36 @@ export default function HomePage() {
         </section>
 
         {/* Discovery + legal footnote */}
-        <section className="mt-14 space-y-2 text-sm text-zinc-400">
+        <section className="mt-14 space-y-2 text-sm text-gray-600 dark:text-zinc-400">
           <p>
             Discovery:{" "}
-            <Link className="text-emerald-400 underline" href="/.well-known/agent-services.json">
+            <Link className="text-emerald-600 underline dark:text-emerald-400" href="/.well-known/agent-services.json">
               agent-services.json
             </Link>
             ,{" "}
-            <Link className="text-emerald-400 underline" href="/.well-known/x402">
+            <Link className="text-emerald-600 underline dark:text-emerald-400" href="/.well-known/x402">
               x402
             </Link>
             ,{" "}
-            <Link className="text-emerald-400 underline" href="/api/openapi.json">
+            <Link className="text-emerald-600 underline dark:text-emerald-400" href="/api/openapi.json">
               OpenAPI
             </Link>
             ,{" "}
-            <Link className="text-emerald-400 underline" href="/llms.txt">
+            <Link className="text-emerald-600 underline dark:text-emerald-400" href="/llms.txt">
               llms.txt
             </Link>
           </p>
-          <p className="text-xs text-zinc-600">
+          <p className="text-xs text-gray-400 dark:text-zinc-600">
             Kronos forecasts are research-only outputs from an open model; not investment advice.{" "}
-            <Link className="underline hover:text-zinc-400" href="/disclaimer">
+            <Link className="underline hover:text-gray-600 dark:hover:text-zinc-400" href="/disclaimer">
               Research Disclaimer
             </Link>
             . Use is subject to our{" "}
-            <Link className="underline hover:text-zinc-400" href="/terms">
+            <Link className="underline hover:text-gray-600 dark:hover:text-zinc-400" href="/terms">
               Terms
             </Link>
             , including{" "}
-            <Link className="underline hover:text-zinc-400" href="/terms#acceptable-use">
+            <Link className="underline hover:text-gray-600 dark:hover:text-zinc-400" href="/terms#acceptable-use">
               Acceptable Use
             </Link>
             .
