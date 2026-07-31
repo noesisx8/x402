@@ -91,6 +91,7 @@ export async function paidGet(
   config: ClientNetworkConfig,
 ): Promise<Response> {
   const signer = signerFromWallet(address, config);
+  const absoluteUrl = new URL(url, window.location.origin).toString();
   const fetchWithPayment = wrapFetchWithPaymentFromConfig(fetch, {
     schemes: [
       {
@@ -103,5 +104,5 @@ export async function paidGet(
       },
     ],
   });
-  return fetchWithPayment(url, { method: "GET" });
+  return fetchWithPayment(absoluteUrl, { method: "GET" });
 }

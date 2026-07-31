@@ -30,7 +30,7 @@ npm run dev   # local UI only; paid flow needs facilitator + funded wallet
 
 1. Client `GET /api/v/ip-lookup?ip=8.8.8.8`
 2. Server `402` + `PAYMENT-REQUIRED` (price, network, payTo)
-3. Client signs USDC authorization, retries with `PAYMENT-SIGNATURE`
+3. Client signs USDC authorization, retries with `X-PAYMENT`
 4. Facilitator verify → handler runs → settle on success (status &lt; 400)
 
 ## Environment (Vercel)

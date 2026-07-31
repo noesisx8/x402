@@ -14,7 +14,7 @@ export type CatalogService = {
   params: string;
   /** API path, e.g. /api/v/dns-resolve?domain=base.org */
   path: string;
-  /** Ready-to-copy curl example with the PAYMENT-SIGNATURE header. */
+  /** Ready-to-copy curl example with the X-PAYMENT header. */
   curl: string;
 };
 
@@ -41,7 +41,7 @@ function CurlTerminal({ s }: { s: CatalogService }) {
         <span className="text-zinc-300">{s.path}</span>
       </p>
       <p className="break-all">
-        <span className="text-amber-300/90">PAYMENT-SIGNATURE:</span>{" "}
+        <span className="text-amber-300/90">X-PAYMENT:</span>{" "}
         <span className="crt-text">&lt;signed x402 payload&gt;</span>
       </p>
       <p className="text-zinc-600">

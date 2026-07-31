@@ -27,7 +27,7 @@ function toCatalogService(
   const example = s.discovery?.exampleQuery ?? {};
   const qs = new URLSearchParams(example).toString();
   const path = serviceApiPath(s.slug) + (qs ? `?${qs}` : "");
-  const curl = `curl -X GET "${origin}${path}" \\\n  -H "PAYMENT-SIGNATURE: <signed x402 payload>"`;
+  const curl = `curl -X GET "${origin}${path}" \\\n  -H "X-PAYMENT: <signed x402 payload>"`;
   return {
     slug: s.slug,
     name: s.name,
@@ -150,7 +150,7 @@ export default function HomePage() {
               <h3 className="mt-1 font-medium">Retry with proof</h3>
               <p className="mt-1 text-sm text-zinc-400">
                 Resend the request with the{" "}
-                <span className="font-mono text-zinc-300">PAYMENT-SIGNATURE</span> header. The
+                <span className="font-mono text-zinc-300">X-PAYMENT</span> header. The
                 facilitator verifies and settles on-chain; data returns in the same response.
               </p>
             </div>
@@ -175,7 +175,7 @@ export default function HomePage() {
                 <span className="text-sky-400">GET</span>{" "}
                 <span className="text-zinc-300">/api/v/dns-resolve?host=base.org</span>{" "}
                 <span className="text-zinc-600">+</span>{" "}
-                <span className="text-amber-300/90">PAYMENT-SIGNATURE:</span>{" "}
+                <span className="text-amber-300/90">X-PAYMENT:</span>{" "}
                 <span className="text-zinc-500">&lt;signed x402 payload&gt;</span>{" "}
                 <span className="text-zinc-600">→</span> <span className="crt-text">200 OK</span>{" "}
                 <span className="text-zinc-500">{`{ "A": ["…"], "AAAA": ["…"] }`}</span>
