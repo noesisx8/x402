@@ -8,10 +8,25 @@ import { unstable_cache } from "next/cache";
 import { serverEnv } from "@/lib/env";
 import { isPlaceholderPayTo } from "@/lib/env";
 
-const BASESCAN_API_URL = "https://api.basescan.org/api";
-const USDC_CONTRACT_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+/**
+ * Etherscan API V2 — the legacy api.basescan.org V1 endpoint was deprecated
+ * and now hard-fails with "switch to Etherscan API V2". One Etherscan key
+ * works for all chains; Base mainnet is chainid 8453, Sepolia 84532.
+ */
+const ETHERSCAN_V2_URL = "https://api.etherscan.io/v2/api";
+const USDC_BY_MODE: Record<string, { chainId: string; usdc: string }> = {
+  base: { chainId: "8453", usdc: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" },
+  "base-sepolia": {
+    chainId: "84532",
+    usdc: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+  },
+};
 
 const BASESCAN_API_KEY = process.env.BASESCAN_API_KEY?.trim();
+
+function chainConfig(): { chainId: string; usdc: string } {
+  return USDC_BY_MODE[serverEnv.X402_NETWORK_MODE] ?? USDC_BY_MODE.base;
+}
 
 export type OnChainTransfer = {
   hash: string;
@@ -36,16 +51,18 @@ export type BlockchainSettlement = {
 };
 
 function basescanUrl(params: Record<string, string>): string {
+  const { chainId, usdc } = chainConfig();
   const qs = new URLSearchParams({
+    chainid: chainId,
     module: "account",
     action: "tokentx",
-    contractaddress: USDC_CONTRACT_BASE,
+    contractaddress: usdc,
     address: serverEnv.X402_PAY_TO_ADDRESS,
     sort: "desc",
     ...params,
     ...(BASESCAN_API_KEY ? { apikey: BASESCAN_API_KEY } : {}),
   });
-  return `${BASESCAN_API_URL}?${qs}`;
+  return `${ETHERSCAN_V2_URL}?${qs}`;
 }
 
 export function blockchainConfigured(): boolean {

@@ -124,6 +124,10 @@ export async function GET(request: NextRequest) {
     analytics: {
       source: analyticsSource,
       summary: analyticsSummary,
+      // Cross-isolate count of successful paid deliveries (Redis-backed
+      // when configured) — the isolate-local summary buffer is not a
+      // reliable global counter on serverless.
+      paidDeliveries: callsForStats.filter((c) => c.event === "200_delivered").length,
       recentCalls: callsForStats.slice(0, 50),
       estimatedRevenue: estimatedRevenue.toFixed(6),
       hourlyActivity: hourly,

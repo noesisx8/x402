@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getBlockchainSettlements, blockchainConfigured } from "@/lib/blockchain/base-scan";
+import { fetchUsdcTransfers, blockchainConfigured } from "@/lib/blockchain/base-scan";
 import { serverEnv } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
@@ -29,15 +29,21 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const settlements = (await getBlockchainSettlements(limit)).map((s) => ({
-    ...s,
-    from: truncateAddress(s.from),
+  const { transfers, source } = await fetchUsdcTransfers(limit);
+  const settlements = transfers.map((t) => ({
+    hash: t.hash,
+    from: truncateAddress(t.from),
+    to: t.to,
+    amountUsdc: t.valueFormatted,
+    timestamp: t.timestamp,
+    blockNumber: Number(t.blockNumber),
+    confirmations: Number(t.confirmations),
   }));
 
   return NextResponse.json(
     {
-      source: "basescan",
-      network: "base",
+      source,
+      network: serverEnv.X402_NETWORK_MODE,
       payTo: serverEnv.X402_PAY_TO_ADDRESS,
       count: settlements.length,
       settlements,

@@ -20,11 +20,13 @@ type DashboardData = {
     list: Array<{ slug: string; name: string; price: string; category: string }>;
   };
   analytics: {
+    source?: "redis" | "memory";
     summary: {
       total: number;
       byEvent: Record<string, number>;
       bySlug: Record<string, number>;
     };
+    paidDeliveries?: number;
     recentCalls: Array<{
       event: string;
       slug: string;
@@ -97,9 +99,12 @@ function StatCard({
 export function DashboardStats({ data }: { data: DashboardData }) {
   const { analytics, blockchain, network, services, caps } = data;
 
-  const totalDeliveries = analytics.summary.byEvent["200_delivered"] ?? 0;
   const total402 = analytics.summary.byEvent["402_issued"] ?? 0;
   const totalErrors = analytics.summary.byEvent["error"] ?? 0;
+  // Prefer the cross-isolate counter; fall back to the local buffer.
+  const totalDeliveries =
+    analytics.paidDeliveries ?? analytics.summary.byEvent["200_delivered"] ?? 0;
+  const fromShared = analytics.source === "redis";
 
   return (
     <div className="space-y-6">
@@ -108,13 +113,17 @@ export function DashboardStats({ data }: { data: DashboardData }) {
         <StatCard
           label="Paid Deliveries"
           value={totalDeliveries}
-          sub={`${total402} 402 issued · ${totalErrors} errors`}
+          sub={
+            fromShared
+              ? "from shared settlement log"
+              : `${total402} 402 issued · ${totalErrors} errors (this isolate)`
+          }
           accent
         />
         <StatCard
           label="Est. Revenue"
           value={`$${analytics.estimatedRevenue}`}
-          sub="From in-memory analytics"
+          sub={fromShared ? "From shared settlement log" : "From in-memory analytics"}
           accent
         />
         <StatCard
