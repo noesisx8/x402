@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Catalog, type CatalogService } from "@/components/catalog";
 import { CopyButton } from "@/components/copy-button";
+import { HowItWorks } from "@/components/how-it-works";
 import { SettlementTicker } from "@/components/settlement-ticker";
 import { TerminalBox } from "@/components/terminal-box";
 import { SiteFooter } from "@/components/site-footer";
@@ -125,36 +126,7 @@ export default function HomePage() {
           <p className="mt-1 text-sm text-zinc-500">
             Pay → prove → call. Three steps, no signup.
           </p>
-          <div className="mt-4 grid gap-4 sm:grid-cols-3">
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-              <p className="text-emerald-400">1</p>
-              <h3 className="mt-1 font-medium">Request an endpoint</h3>
-              <p className="mt-1 text-sm text-zinc-400">
-                Hit any tool URL. If unpaid, the server responds{" "}
-                <span className="font-mono text-zinc-300">402 Payment Required</span> with a{" "}
-                <span className="font-mono text-zinc-300">Payment-Required</span> header carrying
-                the exact USDC price, pay-to address, and network.
-              </p>
-            </div>
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-              <p className="text-emerald-400">2</p>
-              <h3 className="mt-1 font-medium">Sign with your wallet</h3>
-              <p className="mt-1 text-sm text-zinc-400">
-                Your wallet (or agent) signs a USDC{" "}
-                <span className="font-mono text-zinc-300">transferWithAuthorization</span> (EIP-3009)
-                on {network}. No account creation, no API keys, no custody.
-              </p>
-            </div>
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-              <p className="text-emerald-400">3</p>
-              <h3 className="mt-1 font-medium">Retry with proof</h3>
-              <p className="mt-1 text-sm text-zinc-400">
-                Resend the request with the{" "}
-                <span className="font-mono text-zinc-300">PAYMENT-SIGNATURE</span> header. The
-                facilitator verifies and settles on-chain; data returns in the same response.
-              </p>
-            </div>
-          </div>
+          <HowItWorks network={network} />
           <div className="mt-4">
             <TerminalBox title="x402 handshake — dns-resolve">
               <p className="break-all">

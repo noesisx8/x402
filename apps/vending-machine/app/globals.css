@@ -93,3 +93,77 @@ body {
     animation: none;
   }
 }
+
+/* ------------------------------------------------------------------
+ * How-it-works flow: neon underlight + traveling settlement packet.
+ * ------------------------------------------------------------------ */
+
+/* Idle breathing of the neon strip beneath each card (staggered per card). */
+@keyframes how-breathe {
+  0%,
+  100% {
+    opacity: 0.12;
+    transform: scaleX(0.85);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scaleX(1);
+  }
+}
+
+/* Light packet riding the connector rails between steps. */
+@keyframes packet-x {
+  0% {
+    left: 0%;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    left: 100%;
+    opacity: 0;
+  }
+}
+
+@keyframes packet-y {
+  0% {
+    top: 0%;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
+}
+
+.how-underglow {
+  animation: how-breathe 6s ease-in-out infinite;
+  will-change: opacity, transform;
+}
+
+.how-packet-x {
+  animation: packet-x 2.6s linear infinite;
+}
+
+.how-packet-y {
+  animation: packet-y 2.2s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .how-underglow,
+  .how-packet-x,
+  .how-packet-y {
+    animation: none;
+    opacity: 0.25;
+  }
+}
