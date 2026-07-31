@@ -32,7 +32,7 @@ export function TerminalBox({
           {payHref && (
             <Link
               href={payHref}
-              className="rounded border border-emerald-500/60 bg-emerald-500/10 px-2 py-0.5 font-sans text-xs font-medium text-emerald-300 transition hover:bg-emerald-500/20"
+              className="rounded border border-emerald-500/60 bg-emerald-500/10 px-3 py-1 font-sans text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20"
             >
               {payLabel ?? "Pay →"}
             </Link>

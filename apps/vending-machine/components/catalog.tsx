@@ -56,15 +56,12 @@ function ServiceCard({ s }: { s: CatalogService }) {
     <article className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-lg font-medium">{s.name}</h3>
-        <span className="flex items-center gap-3">
-          <span className="text-emerald-400">{s.price} USDC</span>
-          <Link
-            href={`/pay/${s.slug}`}
-            className="rounded-md bg-emerald-500 px-3 py-1 font-sans text-sm font-medium text-emerald-950 transition hover:bg-emerald-400"
-          >
-            Pay {s.price} →
-          </Link>
-        </span>
+        <Link
+          href={`/pay/${s.slug}`}
+          className="rounded-md bg-emerald-500 px-5 py-2 font-sans text-base font-semibold text-emerald-950 transition hover:bg-emerald-400"
+        >
+          Pay {s.price} →
+        </Link>
       </div>
       <p className="mt-1 text-sm text-zinc-400">{s.description}</p>
       <p className="mt-2 font-mono text-xs text-zinc-500">GET {s.path}</p>
