@@ -47,6 +47,9 @@ export function SiteHeader() {
           <Link className="hover:text-emerald-400" href="/test">
             /test
           </Link>
+          <Link className="hover:text-emerald-400" href="/dashboard">
+            Dashboard
+          </Link>
           <Link className="hover:text-emerald-400" href="/disclaimer">
             Disclaimer
           </Link>
