@@ -20,11 +20,36 @@ const wrappedHandlers: Record<string, Wrapped> = {};
 
 function paymentHeader(request: NextRequest): string | null {
   return (
+    request.headers.get("x-payment") ??
+    request.headers.get("X-PAYMENT") ??
     request.headers.get("payment-signature") ??
     request.headers.get("PAYMENT-SIGNATURE") ??
-    request.headers.get("x-payment") ??
-    request.headers.get("X-PAYMENT")
+    request.headers.get("x-payment-signature") ??
+    request.headers.get("X-PAYMENT-SIGNATURE")
   );
+}
+
+/**
+ * Older catalog examples used PAYMENT-SIGNATURE, while @x402 middleware consumes X-PAYMENT.
+ * Normalize legacy client headers before handing the request to withX402 so paid retries verify.
+ */
+function normalizePaymentHeader(request: NextRequest): NextRequest {
+  if (request.headers.get("x-payment") || request.headers.get("X-PAYMENT")) {
+    return request;
+  }
+  const legacy =
+    request.headers.get("payment-signature") ??
+    request.headers.get("PAYMENT-SIGNATURE") ??
+    request.headers.get("x-payment-signature") ??
+    request.headers.get("X-PAYMENT-SIGNATURE");
+  if (!legacy) return request;
+
+  const headers = new Headers(request.headers);
+  headers.set("X-PAYMENT", legacy);
+  return new NextRequest(request.url, {
+    method: request.method,
+    headers,
+  });
 }
 
 async function ensureWrapped(slug: string): Promise<Wrapped | null> {
@@ -125,16 +150,17 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
   }
 
   try {
-    const res = await handler(request);
+    const res = await handler(normalizePaymentHeader(request));
     const ms = Date.now() - started;
 
     if (res.status === 402) {
       await logCall({
-        event: "402_issued",
+        event: hasPayment ? "verify_rejected" : "402_issued",
         slug,
         status: 402,
         ms,
         userAgentHint: ua,
+        payerHint,
       });
     } else if (res.status === 200) {
       await logCall({

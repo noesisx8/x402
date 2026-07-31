@@ -8,6 +8,7 @@ export type AnalyticsEvent =
   | "402_issued"
   | "payment_present"
   | "verify_context"
+  | "verify_rejected"
   | "handler_ok"
   | "handler_fail"
   | "200_delivered"

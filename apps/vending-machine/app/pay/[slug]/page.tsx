@@ -43,7 +43,7 @@ export default async function PayPage({ params }: { params: Promise<Params> }) {
     Object.fromEntries(Object.entries(example).map(([k, v]) => [k, String(v)]))
   ).toString();
   const path = serviceApiPath(svc.slug) + (qs ? `?${qs}` : "");
-  const curl = `curl -X GET "${origin}${path}" \\\n  -H "PAYMENT-SIGNATURE: <signed x402 payload>"`;
+  const curl = `curl -X GET "${origin}${path}" \\\n  -H "X-PAYMENT: <signed x402 payload>"`;
 
   return (
     <>
@@ -86,7 +86,7 @@ export default async function PayPage({ params }: { params: Promise<Params> }) {
                 <span className="text-zinc-300">{path}</span>
               </p>
               <p className="break-all">
-                <span className="text-amber-300/90">PAYMENT-SIGNATURE:</span>{" "}
+                <span className="text-amber-300/90">X-PAYMENT:</span>{" "}
                 <span className="crt-text">&lt;signed x402 payload&gt;</span>
               </p>
               <p className="text-zinc-600">
