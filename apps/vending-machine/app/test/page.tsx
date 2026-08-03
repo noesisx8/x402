@@ -25,6 +25,7 @@ export default function TestPage() {
   const [address, setAddress] = useState<Address | null>(null);
   const [busy, setBusy] = useState(false);
   const [paidActivity, setPaidActivity] = useState<string | null>(null);
+  const [failure, setFailure] = useState<string | null>(null);
   const [listError, setListError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -72,6 +73,7 @@ export default function TestPage() {
     if (!url) return;
     setBusy(true);
     setPaidActivity(null);
+    setFailure(null);
     setOut("Loading…");
     try {
       const res = await fetch(url, { cache: "no-store" });
@@ -88,6 +90,7 @@ export default function TestPage() {
     if (!config) return;
     setBusy(true);
     setPaidActivity(null);
+    setFailure(null);
     setOut("Connecting wallet…");
     try {
       const addr = await connectBrowserWallet(config);
@@ -107,6 +110,7 @@ export default function TestPage() {
     }
     if (!url) return;
     setBusy(true);
+    setFailure(null);
     setPaidActivity(`Waiting for wallet signature${selected?.slug ? ` for ${selected.slug}` : ""}. Keep this page open.`);
     setOut("402 → sign in wallet → retry…");
     try {
@@ -122,9 +126,15 @@ export default function TestPage() {
         extra =
           "\n\nStill 402: not settled. Use Pay & GET (not the unpaid button), approve USDC in wallet, keep query string unchanged.";
       }
-      setOut(`HTTP ${res.status}\n${text}${extra}`);
+      const output = `HTTP ${res.status}\n${text}${extra}`;
+      setOut(output);
+      if (!res.ok) {
+        setFailure(output);
+      }
     } catch (e) {
-      setOut(`Paid call failed:\n${String(e)}`);
+      const message = `Paid call failed:\n${String(e)}`;
+      setFailure(message);
+      setOut(message);
     } finally {
       setBusy(false);
       setPaidActivity(null);
@@ -228,6 +238,17 @@ export default function TestPage() {
               <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">{paidActivity}</p>
             </div>
           </div>
+        </div>
+      )}
+      {failure && (
+        <div
+          className="mt-4 rounded-lg border border-red-500/50 bg-red-500/10 p-4 text-sm text-red-800 dark:text-red-200"
+          role="alert"
+        >
+          <p className="font-semibold">Something didn&apos;t work</p>
+          <pre className="mt-2 overflow-auto whitespace-pre-wrap font-mono text-xs text-red-900 dark:text-red-100">
+            {failure}
+          </pre>
         </div>
       )}
       <pre className="mt-6 overflow-auto rounded border border-gray-200 bg-gray-50/80 p-4 text-xs whitespace-pre-wrap text-gray-800 dark:border-zinc-800 dark:bg-black/40 dark:text-zinc-200">
