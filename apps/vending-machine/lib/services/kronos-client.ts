@@ -12,7 +12,7 @@ const MAX_PRED_LEN = 24;
  * Must stay under route maxDuration (60s on Pro). Cold Kronos loads can exceed 25s —
  * keep model warm on Railway (background warm + /v1/warmup) so paid calls finish sooner.
  */
-const CLIENT_TIMEOUT_MS = Number(process.env.KRONOS_CLIENT_TIMEOUT_MS ?? "55000");
+const CLIENT_TIMEOUT_MS = Number(process.env.KRONOS_CLIENT_TIMEOUT_MS ?? "25000");
 
 export type KronosForecastInput = {
   symbol: string;

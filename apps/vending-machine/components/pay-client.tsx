@@ -29,6 +29,7 @@ export function PayClient({ service }: { service: PayService }) {
   const [config, setConfig] = useState<ClientNetworkConfig | null>(null);
   const [address, setAddress] = useState<Address | null>(null);
   const [busy, setBusy] = useState(false);
+  const [paidActivity, setPaidActivity] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/config/client", { cache: "no-store" })
@@ -41,6 +42,7 @@ export function PayClient({ service }: { service: PayService }) {
 
   const callUnpaid = useCallback(async () => {
     setBusy(true);
+    setPaidActivity(null);
     setOut("Loading…");
     try {
       const res = await fetch(url, { cache: "no-store" });
@@ -56,6 +58,7 @@ export function PayClient({ service }: { service: PayService }) {
   const connect = useCallback(async () => {
     if (!config) return;
     setBusy(true);
+    setPaidActivity(null);
     setOut("Connecting wallet…");
     try {
       const addr = await connectBrowserWallet(config);
@@ -74,9 +77,11 @@ export function PayClient({ service }: { service: PayService }) {
       return;
     }
     setBusy(true);
+    setPaidActivity(`Waiting for wallet signature, then ${service.name} will run. Keep this page open.`);
     setOut(`402 → sign ${service.price} USDC in wallet → retry…`);
     try {
       const res = await paidGet(url, address, config);
+      setPaidActivity("Payment submitted. Vercel is verifying settlement and running the service…");
       const paymentResponse =
         res.headers.get("payment-response") ?? res.headers.get("PAYMENT-RESPONSE");
       const text = await res.text();
@@ -91,8 +96,9 @@ export function PayClient({ service }: { service: PayService }) {
       setOut(`Paid call failed:\n${String(e)}`);
     } finally {
       setBusy(false);
+      setPaidActivity(null);
     }
-  }, [address, config, url, service.price]);
+  }, [address, config, url, service.name, service.price]);
 
   return (
     <div>
@@ -135,6 +141,21 @@ export function PayClient({ service }: { service: PayService }) {
         <p className="mt-2 font-mono text-xs text-gray-500 dark:text-zinc-500">
           Payer: {address.slice(0, 6)}…{address.slice(-4)}
         </p>
+      )}
+      {paidActivity && (
+        <div
+          className="mt-4 rounded-lg border border-emerald-400/40 bg-emerald-500/10 p-4 text-sm text-emerald-800 shadow-lg shadow-emerald-950/10 dark:text-emerald-200"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="flex items-center gap-3">
+            <span className="h-3 w-3 animate-ping rounded-full bg-emerald-400" />
+            <div>
+              <p className="font-medium">Payment in progress</p>
+              <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">{paidActivity}</p>
+            </div>
+          </div>
+        </div>
       )}
       <pre className="mt-6 overflow-auto whitespace-pre-wrap rounded border border-gray-200 bg-gray-50/80 p-4 text-xs text-gray-800 dark:border-zinc-800 dark:bg-black/40 dark:text-zinc-200">
         {out || "Connect a wallet with USDC, then Pay & GET."}
