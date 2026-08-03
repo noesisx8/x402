@@ -9,10 +9,10 @@ const INTERVAL_ALLOW = new Set(["15m", "1h", "4h"]);
 const MAX_LOOKBACK = 256;
 const MAX_PRED_LEN = 24;
 /**
- * Must stay under route maxDuration (60s on Pro). Cold Kronos loads can exceed 25s —
- * keep model warm on Railway (background warm + /v1/warmup) so paid calls finish sooner.
+ * Must stay under route maxDuration. Railway CPU inference can take ~85s, so
+ * the default leaves enough room while still failing before the route ceiling.
  */
-const CLIENT_TIMEOUT_MS = Number(process.env.KRONOS_CLIENT_TIMEOUT_MS ?? "25000");
+const CLIENT_TIMEOUT_MS = Number(process.env.KRONOS_CLIENT_TIMEOUT_MS ?? "120000");
 
 export type KronosForecastInput = {
   symbol: string;

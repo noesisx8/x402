@@ -10,8 +10,8 @@ import {
 } from "@/lib/analytics";
 import { checkRateLimit, clientIpFromHeaders } from "@/lib/rate-limit";
 
-/** Kronos + multi-leg bundles need headroom; Pro default allows up to 60s. */
-export const maxDuration = 60;
+/** Kronos CPU inference can take ~85s; keep this above KRONOS_CLIENT_TIMEOUT_MS. */
+export const maxDuration = 150;
 export const runtime = "nodejs";
 
 type Wrapped = (request: NextRequest) => Promise<NextResponse>;
