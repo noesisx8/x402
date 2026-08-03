@@ -10,8 +10,8 @@ import {
 } from "@/lib/analytics";
 import { checkRateLimit, clientIpFromHeaders } from "@/lib/rate-limit";
 
-/** Kronos + multi-leg bundles need headroom; Pro default allows up to 60s. */
-export const maxDuration = 60;
+/** Kronos CPU inference can take ~85s; keep this above KRONOS_CLIENT_TIMEOUT_MS. */
+export const maxDuration = 150;
 export const runtime = "nodejs";
 
 type Wrapped = (request: NextRequest) => Promise<NextResponse>;
@@ -25,6 +25,22 @@ function paymentHeader(request: NextRequest): string | null {
     request.headers.get("x-payment") ??
     request.headers.get("X-PAYMENT")
   );
+}
+
+function handlerFailureStatus(error: unknown): number {
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (message.startsWith("kronos_upstream_unreachable:")) {
+    return 504;
+  }
+
+  const upstreamStatus = message.match(/^kronos_upstream_(\d{3}):/);
+  if (upstreamStatus) {
+    const status = Number(upstreamStatus[1]);
+    return status >= 500 ? status : 400;
+  }
+
+  return 400;
 }
 
 async function ensureWrapped(slug: string): Promise<Wrapped | null> {
@@ -50,17 +66,18 @@ async function ensureWrapped(slug: string): Promise<Wrapped | null> {
       });
       return NextResponse.json({ service: slug, ok: true, ...body });
     } catch (e) {
+      const status = handlerFailureStatus(e);
       await logCall({
         event: "handler_fail",
         slug,
         ms: Date.now() - started,
-        status: 400,
+        status,
         error: String(e).slice(0, 200),
       });
-      // status >= 400 → withX402 skips settle (idempotent: no charge on bad input)
+      // status >= 400 → withX402 skips settle (idempotent: no charge on failed calls)
       return NextResponse.json(
         { service: slug, ok: false, error: String(e) },
-        { status: 400 },
+        { status },
       );
     }
   };
