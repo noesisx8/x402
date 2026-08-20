@@ -3,7 +3,7 @@ import { serverEnv } from "@/lib/env";
 
 /** Agent-oriented site map (llms.txt convention). */
 export async function GET() {
-  const base = serverEnv.PUBLIC_BASE_URL ?? "https://vending-machine-seven.vercel.app";
+  const base = serverEnv.PUBLIC_BASE_URL ?? "http://localhost:3000";
   const enabled = VENDING_SERVICES.filter((s) => s.enabled);
   const lineFor = (s: (typeof enabled)[0]) => {
     const q = s.queryParams

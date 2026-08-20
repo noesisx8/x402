@@ -6,7 +6,7 @@
  *
  * Env (process env wins over files):
  *   X402_PRIVATE_KEY   0x… EVM private key with Base USDC
- *   BASE_URL           default https://vending-machine-seven.vercel.app
+ *   BASE_URL           default https://vendsdk.com
  *   SLUG               default qr-code
  *   QUERY              default data=paid-e2e
  *
@@ -56,7 +56,7 @@ function loadEnvFile(path) {
 const loadedLocal = loadEnvFile(join(appRoot, ".env.local"));
 const loadedEnv = loadEnvFile(join(appRoot, ".env"));
 
-const BASE = (process.env.BASE_URL ?? "https://vending-machine-seven.vercel.app").replace(/\/$/, "");
+const BASE = (process.env.BASE_URL ?? "https://vendsdk.com").replace(/\/$/, "");
 const SLUG = process.env.SLUG ?? "qr-code";
 const QUERY = process.env.QUERY ?? "data=paid-e2e";
 const pk = process.env.X402_PRIVATE_KEY?.trim();

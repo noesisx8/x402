@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { serverEnv } from "@/lib/env";
 import { VENDING_SERVICES } from "@/lib/services/registry";
 
-const baseUrl = serverEnv.PUBLIC_BASE_URL ?? "https://vending-machine-seven.vercel.app";
+const baseUrl = serverEnv.PUBLIC_BASE_URL ?? "http://localhost:3000";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const staticRoutes: MetadataRoute.Sitemap = [
