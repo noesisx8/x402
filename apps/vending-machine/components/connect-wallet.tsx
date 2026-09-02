@@ -39,7 +39,7 @@ export function ConnectWallet() {
     setLoading(true);
     try {
       const accounts = await eth.request({ method: "eth_requestAccounts" });
-      setAddress(accounts[0] ?? null);
+      setAddress(Array.isArray(accounts) && typeof accounts[0] === "string" ? accounts[0] : null);
     } catch {
       // User rejected
     } finally {
