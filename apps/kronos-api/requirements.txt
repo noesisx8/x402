@@ -10,3 +10,5 @@ torch==2.13.0
 einops==0.8.1
 safetensors==0.5.3
 tqdm==4.67.1
+hf-xet>=0.1.0
+huggingface-hub[hf_xet]>=0.20.0

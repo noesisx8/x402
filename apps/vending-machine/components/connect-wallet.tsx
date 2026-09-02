@@ -24,14 +24,6 @@ export function ConnectWallet() {
       setAddress(eth.selectedAddress);
     }
 
-    const handleAccountsChanged = (accounts: string[]) => {
-      setAddress(accounts[0] ?? null);
-    };
-
-    eth?.on?.("accountsChanged", handleAccountsChanged);
-    return () => {
-      eth?.removeListener?.("accountsChanged", handleAccountsChanged);
-    };
   }, []);
 
   const connect = useCallback(async () => {
