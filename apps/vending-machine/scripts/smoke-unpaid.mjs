@@ -5,10 +5,10 @@
  *
  * Usage:
  *   node scripts/smoke-unpaid.mjs
- *   BASE_URL=https://vending-machine-seven.vercel.app node scripts/smoke-unpaid.mjs
+ *   BASE_URL=https://vendsdk.com node scripts/smoke-unpaid.mjs
  */
 
-const BASE = (process.env.BASE_URL ?? "https://vending-machine-seven.vercel.app").replace(/\/$/, "");
+const BASE = (process.env.BASE_URL ?? "https://vendsdk.com").replace(/\/$/, "");
 
 let failed = 0;
 

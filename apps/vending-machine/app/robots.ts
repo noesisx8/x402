@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { serverEnv } from "@/lib/env";
 
-const baseUrl = serverEnv.PUBLIC_BASE_URL ?? "https://vending-machine-seven.vercel.app";
+const baseUrl = serverEnv.PUBLIC_BASE_URL ?? "http://localhost:3000";
 
 export default function robots(): MetadataRoute.Robots {
   return {

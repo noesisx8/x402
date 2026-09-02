@@ -7,7 +7,7 @@
  *
  * Usage: node scripts/smoke-bazaar.mjs
  */
-const BASE = (process.env.BASE_URL ?? "https://vending-machine-seven.vercel.app").replace(/\/$/, "");
+const BASE = (process.env.BASE_URL ?? "https://vendsdk.com").replace(/\/$/, "");
 const PAY_TO = (process.env.X402_PAY_TO_ADDRESS ?? "0xc648116b5deBE4AF7D78838AA468d07e0A9Ab697").trim();
 const CDP = "https://api.cdp.coinbase.com/platform/v2/x402/discovery";
 
@@ -27,6 +27,15 @@ function decodePaymentRequired(header) {
   } catch {
     const b64 = raw.replace(/-/g, "+").replace(/_/g, "/");
     return JSON.parse(Buffer.from(b64, "base64").toString("utf8"));
+  }
+}
+
+function isOurResourceUrl(resource) {
+  try {
+    const host = new URL(String(resource ?? "")).hostname.toLowerCase();
+    return host === "vendsdk.com" || host === "www.vendsdk.com" || host.endsWith(".vendsdk.com");
+  } catch {
+    return false;
   }
 }
 
@@ -63,7 +72,7 @@ async function main() {
     ok("merchant discovery HTTP 200", res.status === 200, `status=${res.status}`);
     const j = await res.json();
     const resources = j.resources ?? j.items ?? [];
-    const ours = resources.filter((r) => String(r.resource ?? "").includes("vending-machine-seven"));
+    const ours = resources.filter((r) => isOurResourceUrl(r.resource));
     console.log(`    merchant resources total=${resources.length} ours=${ours.length}`);
     if (ours.length === 0) {
       console.log(
@@ -77,12 +86,12 @@ async function main() {
 
   // 3) Search by domain
   {
-    const url = `${CDP}/search?query=${encodeURIComponent("vending-machine-seven.vercel.app")}&network=eip155:8453&limit=20`;
+    const url = `${CDP}/search?query=${encodeURIComponent("vendsdk.com")}&network=eip155:8453&limit=20`;
     const res = await fetch(url);
     ok("semantic search HTTP 200", res.status === 200, `status=${res.status}`);
     const j = await res.json();
     const resources = j.resources ?? j.items ?? [];
-    const hit = resources.some((r) => String(r.resource ?? "").includes("vending-machine-seven"));
+    const hit = resources.some((r) => String(r.resource ?? "").includes("vendsdk.com"));
     console.log(`    search hits=${resources.length} our_domain=${hit}`);
     if (!hit) {
       console.log("    note: appears after first CDP settle with bazaar extensions + cache");
