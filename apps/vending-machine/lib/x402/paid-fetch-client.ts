@@ -4,6 +4,10 @@ import { wrapFetchWithPaymentFromConfig } from "@x402/fetch";
 import { ExactEvmScheme } from "@x402/evm/exact/client";
 import { createWalletClient, custom, type Address, type Hex } from "viem";
 import { base, baseSepolia } from "viem/chains";
+import {
+  getBrowserWalletProvider,
+  type Eip1193Provider,
+} from "@/lib/x402/browser-wallet-provider";
 
 export type ClientNetworkConfig = {
   networkMode: "base" | "base-sepolia";
@@ -12,16 +16,12 @@ export type ClientNetworkConfig = {
   hint: string;
 };
 
-type Eip1193Provider = {
-  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-};
-
 function getProvider(): Eip1193Provider {
-  const eth = (globalThis as typeof globalThis & { ethereum?: Eip1193Provider }).ethereum;
-  if (!eth) {
-    throw new Error("No browser wallet found. Install MetaMask or Coinbase Wallet.");
+  const provider = getBrowserWalletProvider();
+  if (!provider) {
+    throw new Error("No browser wallet found. Install Brave Wallet, MetaMask, or Coinbase Wallet.");
   }
-  return eth;
+  return provider;
 }
 
 function chainForMode(mode: ClientNetworkConfig["networkMode"]) {
