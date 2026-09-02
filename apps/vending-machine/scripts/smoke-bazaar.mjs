@@ -30,6 +30,15 @@ function decodePaymentRequired(header) {
   }
 }
 
+function isOurResourceUrl(resource) {
+  try {
+    const host = new URL(String(resource ?? "")).hostname.toLowerCase();
+    return host === "vendsdk.com" || host === "www.vendsdk.com" || host.endsWith(".vendsdk.com");
+  } catch {
+    return false;
+  }
+}
+
 async function main() {
   console.log(`Bazaar smoke → ${BASE}\n`);
 
@@ -63,7 +72,7 @@ async function main() {
     ok("merchant discovery HTTP 200", res.status === 200, `status=${res.status}`);
     const j = await res.json();
     const resources = j.resources ?? j.items ?? [];
-    const ours = resources.filter((r) => String(r.resource ?? "").includes("vendsdk.com"));
+    const ours = resources.filter((r) => isOurResourceUrl(r.resource));
     console.log(`    merchant resources total=${resources.length} ours=${ours.length}`);
     if (ours.length === 0) {
       console.log(
