@@ -1,14 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { getBrowserWalletProvider } from "@/lib/x402/browser-wallet-provider";
 
 function truncateAddress(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
-}
-
-function getEthereum(): any | undefined {
-  if (typeof window === "undefined") return undefined;
-  return (window as any).ethereum;
 }
 
 export function ConnectWallet() {
@@ -19,23 +15,14 @@ export function ConnectWallet() {
   useEffect(() => {
     setMounted(true);
     // Check if already connected
-    const eth = getEthereum();
+    const eth = getBrowserWalletProvider();
     if (eth?.selectedAddress) {
       setAddress(eth.selectedAddress);
     }
-
-    const handleAccountsChanged = (accounts: string[]) => {
-      setAddress(accounts[0] ?? null);
-    };
-
-    eth?.on?.("accountsChanged", handleAccountsChanged);
-    return () => {
-      eth?.removeListener?.("accountsChanged", handleAccountsChanged);
-    };
   }, []);
 
   const connect = useCallback(async () => {
-    const eth = getEthereum();
+    const eth = getBrowserWalletProvider();
     if (!eth) {
       window.open("https://metamask.io/download/", "_blank");
       return;
@@ -43,7 +30,7 @@ export function ConnectWallet() {
     setLoading(true);
     try {
       const accounts = await eth.request({ method: "eth_requestAccounts" });
-      setAddress(accounts[0] ?? null);
+      setAddress(Array.isArray(accounts) && typeof accounts[0] === "string" ? accounts[0] : null);
     } catch {
       // User rejected
     } finally {
