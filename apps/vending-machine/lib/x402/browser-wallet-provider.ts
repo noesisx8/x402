@@ -4,8 +4,6 @@ export type Eip1193Provider = {
   request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
   isBraveWallet?: boolean;
   providers?: Eip1193Provider[];
-  on?: (event: string, listener: (accounts: string[]) => void) => void;
-  removeListener?: (event: string, listener: (accounts: string[]) => void) => void;
   selectedAddress?: string | null;
 };
 
