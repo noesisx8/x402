@@ -317,7 +317,9 @@ export const fetchTextHandler: VendingHandler = async (_req, query) => {
   if (!url) throw new Error("missing url");
   const maxChars = Math.min(20_000, Math.max(500, Number(query.max_chars ?? 12_000) || 12_000));
   const page = await fetchPageText(url, maxChars);
-  return { ...page, source: "fetch+html-strip" };
+  const format = String(query.format ?? "text").toLowerCase();
+  if (!["text", "markdown", "structured"].includes(format)) throw new Error("invalid_format");
+  return { ...page, retrieved_at: new Date().toISOString(), format, markdown: format === "text" ? "" : page.markdown, headings: format === "structured" ? page.headings : [], links: format === "structured" ? page.links : [], source: "fetch+html-parse" };
 };
 
 /** Base mainnet ETH + USDC balances — agent wallets / treasury checks. */

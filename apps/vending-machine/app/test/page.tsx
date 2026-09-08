@@ -20,6 +20,7 @@ export default function TestPage() {
   const [services, setServices] = useState<TestService[]>([]);
   const [slug, setSlug] = useState("");
   const [qs, setQs] = useState("");
+  const [requirements, setRequirements] = useState<Record<string, unknown> | null>(null);
   const [out, setOut] = useState("");
   const [config, setConfig] = useState<ClientNetworkConfig | null>(null);
   const [address, setAddress] = useState<Address | null>(null);
@@ -70,10 +71,24 @@ export default function TestPage() {
   const callUnpaid = useCallback(async () => {
     if (!url) return;
     setBusy(true);
+    setRequirements(null);
     setOut("Loading…");
     try {
       const res = await fetch(url, { cache: "no-store" });
       const text = await res.text();
+      const header = res.headers.get("payment-required");
+      if (res.status === 402 && header) {
+        try {
+          const normalized = header.replace(/-/g, "+").replace(/_/g, "/");
+          const decoded: unknown = JSON.parse(atob(normalized));
+          if (decoded && typeof decoded === "object" && !Array.isArray(decoded)) {
+            setRequirements(decoded as Record<string, unknown>);
+          }
+        } catch {
+          setOut(`HTTP 402\nUnable to decode payment requirements. Please retry.\n${text}`);
+          return;
+        }
+      }
       setOut(`HTTP ${res.status}\n${text}`);
     } catch (e) {
       setOut(String(e));
@@ -127,7 +142,7 @@ export default function TestPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
-      <h1 className="text-2xl font-semibold text-gray-900 dark:text-zinc-100">x402 paid test</h1>
+      <h1 className="text-2xl font-semibold text-gray-900 dark:text-zinc-100">VendSDK playground</h1>
       <p className="mt-2 text-sm text-gray-600 dark:text-zinc-400">
         Step 1: unpaid GET expects <strong className="text-amber-600 dark:text-amber-400">402</strong>. Step 2: connect
         wallet on {config?.chainName ?? "…"} with USDC, then{" "}
@@ -150,6 +165,8 @@ export default function TestPage() {
           disabled={services.length === 0}
           onChange={(e) => {
             const pick = services.find((s) => s.slug === e.target.value);
+            setRequirements(null);
+            setOut("");
             setSlug(e.target.value);
             if (pick) setQs(pick.qs ?? "");
           }}
@@ -175,7 +192,7 @@ export default function TestPage() {
         <input
           className="mt-1 w-full rounded border border-gray-200 bg-white/60 p-2 font-mono text-xs text-gray-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
           value={qs}
-          onChange={(e) => setQs(e.target.value)}
+          onChange={(e) => { setQs(e.target.value); setRequirements(null); setOut(""); }}
         />
       </label>
       <div className="mt-4 flex flex-wrap gap-2">
@@ -185,7 +202,7 @@ export default function TestPage() {
           onClick={callUnpaid}
           className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
         >
-          GET (no payment) — always 402
+          1. Check price — no payment
         </button>
         <button
           type="button"
@@ -193,7 +210,7 @@ export default function TestPage() {
           onClick={connect}
           className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
         >
-          {address ? "Reconnect wallet" : "Connect wallet"}
+          {address ? "Reconnect wallet" : "2. Connect wallet"}
         </button>
         <button
           type="button"
@@ -209,7 +226,22 @@ export default function TestPage() {
           Payer: {address.slice(0, 6)}…{address.slice(-4)}
         </p>
       )}
-      <pre className="mt-6 overflow-auto rounded border border-gray-200 bg-gray-50/80 p-4 text-xs whitespace-pre-wrap text-gray-800 dark:border-zinc-800 dark:bg-black/40 dark:text-zinc-200">
+      {requirements && (
+        <section className="mt-6 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-5" aria-label="Payment requirements">
+          <h2 className="font-semibold text-emerald-700 dark:text-emerald-300">Payment required — no payment sent</h2>
+          <p className="mt-2 text-sm text-gray-600 dark:text-zinc-300">
+            Listed price: {selected?.price ?? "See requirements below"} · Network: {config?.chainName ?? "See requirements below"}.
+            Review the server requirements below, connect a wallet with USDC on that network, then choose Pay &amp; GET.
+            Keep the service and query unchanged when retrying.
+          </p>
+          <details className="mt-3">
+            <summary className="cursor-pointer text-sm text-emerald-700 dark:text-emerald-300">View decoded server requirements</summary>
+            <pre className="mt-2 overflow-auto whitespace-pre-wrap break-all text-xs text-gray-700 dark:text-zinc-300">{JSON.stringify(requirements, null, 2)}</pre>
+          </details>
+        </section>
+      )}
+      <p className="mt-4 text-xs text-gray-500 dark:text-zinc-400"><a href="/api/openapi.json" className="underline">OpenAPI reference</a> · <a href="/developers" className="underline">Agent integration kit</a> · A 402 response is the price quote. Payment requires your wallet approval.</p>
+      <pre aria-live="polite" className="mt-6 overflow-auto rounded border border-gray-200 bg-gray-50/80 p-4 text-xs whitespace-pre-wrap text-gray-800 dark:border-zinc-800 dark:bg-black/40 dark:text-zinc-200">
         {out}
       </pre>
       {slug === "kronos-forecast" && (

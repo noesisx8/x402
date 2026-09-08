@@ -376,13 +376,14 @@ export const VENDING_SERVICES: VendingService[] = [
     slug: "fetch-text",
     name: "Fetch page text",
     description:
-      "Fetch a public page and return plain text (HTML stripped) for research, RAG, and summarization agents",
+      "Fetch a public page as text, Markdown, or structured headings and links with source timestamps for research agents",
     price: "$0.005",
     scheme: "exact",
     enabled: true,
     queryParams: [
       { name: "url", required: true, description: "Public https:// page URL" },
       { name: "max_chars", required: false, description: "Max text chars default 12000" },
+      { name: "format", required: false, description: "text (default), markdown, or structured" },
     ],
     handler: fetchTextHandler,
     discovery: {

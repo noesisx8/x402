@@ -1,3 +1,4 @@
+import { validInput, validOutput } from "@/lib/services/validation";
 import { NextRequest, NextResponse } from "next/server";
 import { withX402 } from "@x402/next";
 import { getResourceServer } from "@/lib/x402/resource-server";
@@ -9,6 +10,10 @@ import {
   userAgentHint,
 } from "@/lib/analytics";
 import { checkRateLimit, clientIpFromHeaders } from "@/lib/rate-limit";
+import { serviceFailure } from "@/lib/services/errors";
+import { encodePaymentResponseHeader } from "@x402/core/http";
+import { getReceiptStore } from "@/lib/x402/receipt-store";
+import { RECEIPT_HEADER, ReceiptError, ReceiptSession, receiptContext, receiptRecord, recoverReceipt } from "@/lib/x402/receipts";
 
 /** Kronos + multi-leg bundles need headroom; Pro default allows up to 60s. */
 export const maxDuration = 60;
@@ -33,7 +38,7 @@ async function ensureWrapped(slug: string): Promise<Wrapped | null> {
   if (wrappedHandlers[slug]) return wrappedHandlers[slug];
 
   const server = await getResourceServer();
-  const inner = async (request: NextRequest) => {
+  const inner = async (request: NextRequest): Promise<NextResponse> => {
     const started = Date.now();
     const url = new URL(request.url);
     const query: Record<string, string> = {};
@@ -41,26 +46,35 @@ async function ensureWrapped(slug: string): Promise<Wrapped | null> {
       query[k] = v;
     });
     try {
+      const receipt = receiptContext.getStore();
+      // The wrapper has verified payment before entering this handler.
+      if (receipt) await receipt.claim();
       const body = await svc.handler(request, query);
+      const result = { service: slug, ok: true, ...body };
+      if (!validOutput(svc, result)) throw new Error("service_output_mismatch");
+      if (receipt) await receipt.prepare(JSON.stringify(result));
       await logCall({
         event: "handler_ok",
         slug,
         ms: Date.now() - started,
         status: 200,
       });
-      return NextResponse.json({ service: slug, ok: true, ...body });
+      return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
     } catch (e) {
+      await receiptContext.getStore()?.failed();
+      if (e instanceof ReceiptError) return NextResponse.json({ error: e.code }, { status: e.status });
+      const failure = serviceFailure(e);
       await logCall({
         event: "handler_fail",
         slug,
         ms: Date.now() - started,
-        status: 400,
-        error: String(e).slice(0, 200),
+        status: failure.status,
+        error: failure.error,
       });
       // status >= 400 → withX402 skips settle (idempotent: no charge on bad input)
       return NextResponse.json(
-        { service: slug, ok: false, error: String(e) },
-        { status: 400 },
+        { service: slug, ok: false, error: failure.error, retryable: failure.retryable },
+        { status: failure.status },
       );
     }
   };
@@ -87,10 +101,13 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
     return NextResponse.json({ error: "unknown_service", slug }, { status: 404 });
   }
 
-  // Phase 0.5 — throttle unpaid 402 spam (per IP + slug, per isolate)
-  if (!hasPayment) {
+  // Baseline applies before verification: arbitrary payment headers cannot bypass it.
+  {
     const ip = clientIpFromHeaders(request.headers);
-    const rl = checkRateLimit(`unpaid:${ip}:${slug}`);
+    const baseline = checkRateLimit(`requests:${ip}`, 120, 60_000);
+    const rl = baseline.allowed && !hasPayment
+      ? checkRateLimit(`unpaid:${ip}:${slug}`)
+      : baseline;
     if (!rl.allowed) {
       await logCall({
         event: "rate_limited",
@@ -110,7 +127,8 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
         },
       );
     }
-  } else {
+  }
+  if (hasPayment) {
     await logCall({
       event: "payment_present",
       slug,
@@ -119,13 +137,33 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
     });
   }
 
-  const handler = await ensureWrapped(slug);
-  if (!handler) {
-    return NextResponse.json({ error: "unknown_service", slug }, { status: 404 });
-  }
+  const query = Object.fromEntries(new URL(request.url).searchParams);
+  if (!validInput(SERVICES_BY_SLUG[slug], query)) return NextResponse.json({ error: "invalid_request", retryable: false }, { status: 400 });
 
   try {
-    const res = await handler(request);
+    let receipt: ReceiptSession | undefined;
+    const token = request.headers.get(RECEIPT_HEADER);
+    if (token && payHdr) {
+      const store = getReceiptStore();
+      if (!store) throw new ReceiptError("receipt_storage_unavailable");
+      const record = receiptRecord(token, payHdr, request.url);
+      const existing = await store.get(record.id);
+      if (existing) {
+        if (existing.binding !== record.binding) throw new ReceiptError("receipt_binding_mismatch", 409);
+        const recovered = await recoverReceipt(store, record.id);
+        const headers: Record<string, string> = { "Cache-Control": "no-store", "X-VendSDK-Recovered": "true" };
+        if (recovered.status === 200 && existing.transaction) headers["PAYMENT-RESPONSE"] = encodePaymentResponseHeader({ success: true, transaction: existing.transaction, network: existing.network as `eip155:${number}`, payer: existing.payer });
+        return NextResponse.json(recovered.status === 200 ? recovered.body.result : recovered.body, { status: recovered.status, headers });
+      }
+      receipt = new ReceiptSession(store, record);
+    }
+    const handler = await ensureWrapped(slug);
+    if (!handler) {
+      return NextResponse.json({ error: "unknown_service", slug }, { status: 404 });
+    }
+    const res = receipt ? await receiptContext.run(receipt, () => handler(request)) : await handler(request);
+    res.headers.set("Cache-Control", "no-store");
+    if (receipt) res.headers.set("X-VendSDK-Receipt-Status", "/api/receipts");
     const ms = Date.now() - started;
 
     if (res.status === 402) {
@@ -168,6 +206,7 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
 
     return res;
   } catch (e) {
+    if (e instanceof ReceiptError) return NextResponse.json({ error: e.code }, { status: e.status, headers: { "Cache-Control": "no-store" } });
     await logCall({
       event: "error",
       slug,
@@ -175,7 +214,7 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
       ms: Date.now() - started,
       userAgentHint: ua,
       payerHint,
-      error: String(e).slice(0, 200),
+      error: "payment_pipeline_failed",
     });
     return NextResponse.json(
       { error: "facilitator_or_server_error", message: "payment pipeline failed" },

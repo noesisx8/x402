@@ -3,6 +3,7 @@ import type { Network } from "@x402/core/types";
 import { CAIP_NETWORK, serverEnv } from "@/lib/env";
 import { assertPriceWithinCap } from "@/lib/pricing";
 import { bazaarExtensionsForService } from "@/lib/x402/bazaar";
+import { declarePaymentIdentifierExtension, PAYMENT_IDENTIFIER } from "@x402/extensions/payment-identifier";
 
 export type VendingHandler = (
   request: Request,
@@ -54,7 +55,7 @@ export function serviceRouteConfig(svc: VendingService): RouteConfig {
     description,
     mimeType: "application/json",
     // Bazaar: declare input/output so CDP can catalog after first settle
-    extensions: bazaarExtensionsForService(svc),
+    extensions: { ...bazaarExtensionsForService(svc), [PAYMENT_IDENTIFIER]: declarePaymentIdentifierExtension(false) },
   };
 }
 

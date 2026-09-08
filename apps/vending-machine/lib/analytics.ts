@@ -82,6 +82,7 @@ export async function persistSettlement(rec: SettlementRecord): Promise<void> {
   if (!redisConfigured()) return;
   try {
     await fetch(`${REDIS_URL}/pipeline`, {
+      signal: AbortSignal.timeout(500),
       method: "POST",
       headers: {
         authorization: `Bearer ${REDIS_TOKEN}`,
@@ -102,6 +103,7 @@ export async function getPersistedSettlements(limit = 20): Promise<SettlementRec
   if (!redisConfigured()) return null;
   try {
     const res = await fetch(`${REDIS_URL}/lrange/${SETTLEMENTS_KEY}/0/${limit - 1}`, {
+      signal: AbortSignal.timeout(500),
       headers: { authorization: `Bearer ${REDIS_TOKEN}` },
       cache: "no-store",
     });

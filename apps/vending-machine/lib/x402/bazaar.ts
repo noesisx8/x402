@@ -1,3 +1,4 @@
+import { inputSchema, outputSchema, typedQuery } from "@/lib/services/contracts";
 /**
  * CDP Bazaar (x402 discovery layer) helpers.
  * Quality signals: description, input schema, output schema, examples.
@@ -54,19 +55,11 @@ export function bazaarExtensionsForService(svc: VendingService): Record<string, 
     );
 
   const declared = declareDiscoveryExtension({
-    input: exampleQuery,
-    inputSchema: {
-      type: "object",
-      properties,
-      ...(required.length ? { required } : {}),
-      additionalProperties: false,
-    },
+    input: typedQuery(svc, exampleQuery),
+    inputSchema: inputSchema(svc),
     output: {
       example: exampleOutput,
-      schema: {
-        type: "object",
-        properties: outputProps,
-      },
+      schema: outputSchema(svc),
     },
   }) as {
     bazaar?: {

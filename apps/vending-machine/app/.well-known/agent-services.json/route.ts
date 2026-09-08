@@ -1,3 +1,4 @@
+import { inputSchema, outputSchema } from "@/lib/services/contracts";
 import { NextResponse } from "next/server";
 import { VENDING_SERVICES } from "@/lib/services/registry";
 import { serviceApiPath } from "@/lib/services/types";
@@ -10,6 +11,7 @@ export async function GET() {
     version: 1,
     protocol: "x402",
     x402_version: 2,
+    receipt_recovery: { availability: "/api/receipts", method: "POST", opt_in_header: "X-VendSDK-Receipt", result_ttl_seconds: 86400, documentation: "/developers#receipts" },
     network_mode: serverEnv.X402_NETWORK_MODE,
     caip_network: CAIP_NETWORK[serverEnv.X402_NETWORK_MODE],
     pay_to: serverEnv.X402_PAY_TO_ADDRESS,
@@ -25,6 +27,8 @@ export async function GET() {
       method: "GET",
       url: base ? `${base}${serviceApiPath(s.slug)}` : serviceApiPath(s.slug),
       query_params: s.queryParams,
+      input_schema: inputSchema(s),
+      output_schema: outputSchema(s),
     })),
   });
 }
