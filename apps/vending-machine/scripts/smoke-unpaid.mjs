@@ -6,9 +6,14 @@
  * Usage:
  *   node scripts/smoke-unpaid.mjs
  *   BASE_URL=https://vending-machine-seven.vercel.app node scripts/smoke-unpaid.mjs
+ *   BASE_URLS=https://vendsdk.com,https://vending-machine-seven.vercel.app node scripts/smoke-unpaid.mjs
  */
 
-const BASE = (process.env.BASE_URL ?? "https://vending-machine-seven.vercel.app").replace(/\/$/, "");
+const DEFAULT_BASE_URLS = ["https://vendsdk.com", "https://vending-machine-seven.vercel.app"];
+const bases = (process.env.BASE_URLS ?? process.env.BASE_URL ?? DEFAULT_BASE_URLS.join(","))
+  .split(",")
+  .map((value) => value.trim().replace(/\/$/, ""))
+  .filter(Boolean);
 
 let failed = 0;
 
@@ -21,12 +26,50 @@ function ok(label, cond, detail = "") {
   }
 }
 
-async function main() {
-  console.log(`x402 unpaid smoke → ${BASE}\n`);
+function decodePaymentRequired(header) {
+  const normalized = header.replace(/-/g, "+").replace(/_/g, "/");
+  return JSON.parse(Buffer.from(normalized, "base64").toString("utf8"));
+}
+
+async function assertPaymentRequired(base, path, expectedAmount) {
+  const res = await fetch(`${base}${path}`);
+  const paymentRequired = res.headers.get("payment-required");
+  ok(`${path} status 402`, res.status === 402, `status=${res.status}`);
+  ok(`${path} Payment-Required header`, Boolean(paymentRequired));
+
+  if (!paymentRequired) return;
+
+  let decoded;
+  try {
+    decoded = decodePaymentRequired(paymentRequired);
+    ok(`${path} Payment-Required decodes`, true);
+  } catch (error) {
+    ok(`${path} Payment-Required decodes`, false, String(error));
+    return;
+  }
+
+  const accept = decoded.accepts?.[0];
+  ok(`${path} x402Version 2`, decoded.x402Version === 2, String(decoded.x402Version));
+  ok(`${path} network eip155:8453`, accept?.network === "eip155:8453", accept?.network);
+  if (expectedAmount) ok(`${path} amount ${expectedAmount}`, accept?.amount === expectedAmount, accept?.amount);
+  ok(
+    `${path} payTo EVM address`,
+    typeof accept?.payTo === "string" && /^0x[a-fA-F0-9]{40}$/.test(accept.payTo),
+    accept?.payTo,
+  );
+  ok(
+    `${path} resource URL uses this public domain`,
+    typeof decoded.resource?.url === "string" && decoded.resource.url === `${base}${path}`,
+    decoded.resource?.url,
+  );
+}
+
+async function smokeBase(base) {
+  console.log(`x402 unpaid smoke → ${base}\n`);
 
   // health
   {
-    const res = await fetch(`${BASE}/api/health`);
+    const res = await fetch(`${base}/api/health`);
     const j = await res.json();
     ok("health 200", res.status === 200);
     ok("health ok", j.ok === true);
@@ -37,62 +80,26 @@ async function main() {
 
   // client config
   {
-    const res = await fetch(`${BASE}/api/config/client`);
+    const res = await fetch(`${base}/api/config/client`);
     const j = await res.json();
     ok("client config base", j.networkMode === "base" && j.caipNetwork === "eip155:8453");
   }
 
   // discovery
   {
-    const res = await fetch(`${BASE}/.well-known/agent-services.json`);
+    const res = await fetch(`${base}/.well-known/agent-services.json`);
     const j = await res.json();
     ok("agent-services 200", res.status === 200);
     ok("pay_to set", typeof j.pay_to === "string" && j.pay_to.startsWith("0x"));
     ok("services >= 5", Array.isArray(j.services) && j.services.length >= 5, String(j.services?.length));
   }
 
-  // unpaid 402 on qr-code
-  {
-    const res = await fetch(`${BASE}/api/v/qr-code?data=smoke-test`);
-    const pr =
-      res.headers.get("payment-required") ?? res.headers.get("Payment-Required");
-    ok("qr unpaid status 402", res.status === 402, `status=${res.status}`);
-    ok("Payment-Required header", Boolean(pr));
-
-    if (pr) {
-      let decoded;
-      try {
-        decoded = JSON.parse(Buffer.from(pr, "base64").toString("utf8"));
-      } catch {
-        try {
-          decoded = JSON.parse(Buffer.from(pr.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8"));
-        } catch (e) {
-          ok("decode Payment-Required", false, String(e));
-        }
-      }
-      if (decoded) {
-        const accept = decoded.accepts?.[0];
-        ok("x402Version 2", decoded.x402Version === 2, String(decoded.x402Version));
-        ok("network eip155:8453", accept?.network === "eip155:8453", accept?.network);
-        ok("amount 2000 (0.002 USDC)", accept?.amount === "2000", accept?.amount);
-        ok(
-          "payTo merchant",
-          typeof accept?.payTo === "string" && accept.payTo.toLowerCase().startsWith("0xc648"),
-          accept?.payTo,
-        );
-        ok(
-          "resource url bound to path",
-          typeof decoded.resource?.url === "string" &&
-            decoded.resource.url.includes("/api/v/qr-code"),
-          decoded.resource?.url,
-        );
-      }
-    }
-  }
+  await assertPaymentRequired(base, "/api/v/qr-code?data=smoke-test", "2000");
+  await assertPaymentRequired(base, "/api/v/tls-cert?host=example.com", "4000");
 
   // unknown slug
   {
-    const res = await fetch(`${BASE}/api/v/does-not-exist-xyz`);
+    const res = await fetch(`${base}/api/v/does-not-exist-xyz`);
     ok("unknown slug 404", res.status === 404);
   }
 
@@ -101,7 +108,6 @@ async function main() {
     "/api/v/dns-resolve?host=example.com",
     "/api/v/http-head?url=https://example.com",
     "/api/v/bundle-infra?host=example.com",
-    "/api/v/tls-cert?host=example.com",
     "/api/v/whois-lite?domain=example.com",
     "/api/v/fx-rate?base=USD&symbols=EUR,GBP",
     "/api/v/redirect-trace?url=https://example.com",
@@ -112,12 +118,13 @@ async function main() {
     "/api/v/base-balance?address=0xc648116b5deBE4AF7D78838AA468d07e0A9Ab697",
     "/api/v/domain-intel?host=example.com",
   ]) {
-    const res = await fetch(`${BASE}${path}`);
-    const pr = res.headers.get("payment-required") ?? res.headers.get("Payment-Required");
-    ok(`${path} → 402`, res.status === 402, `status=${res.status}`);
-    ok(`${path} Payment-Required`, Boolean(pr));
+    await assertPaymentRequired(base, path);
   }
+}
 
+async function main() {
+  if (bases.length === 0) throw new Error("Set BASE_URL or BASE_URLS to at least one public endpoint");
+  for (const base of bases) await smokeBase(base);
   console.log(failed === 0 ? "\nAll unpaid checks passed." : `\n${failed} check(s) failed.`);
   process.exit(failed === 0 ? 0 : 1);
 }
