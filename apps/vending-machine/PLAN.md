@@ -7,7 +7,7 @@ Target: x-vendor / vending-machine, apps/vending-machine. Production: https://ve
 
 Progress: phases 1 and 2 are implemented for draft PR #20 review. The separate agent-kit provides five MCP tools, explicit spending caps, ambiguous-payment blocking and JavaScript/Python examples; payments default off. Validation includes 14 adapter tests, five contract/extraction tests, a production build, all five tools through the official Inspector CLI with mocked payments, and live unpaid examples. Ten model-evaluation prompts are supplied but have not been scored with an external model. Funded E2E remains on portalv2 before release.
 
-Structured extraction from phase 5 is also implemented with bounded HTML parsing and fixture tests. Durable receipts (phase 3), domain health (phase 4), Kronos evaluation (phase 6) and the remaining branding audit are pending. Branch investigation below is unchanged; no branches were deleted.
+Structured extraction from phase 5 is also implemented with bounded HTML parsing and fixture tests. Phase 3 now has opt-in durable receipts, authenticated capability retrieval, duplicate-authorization claims, and known-transaction reconciliation; see RECEIPTS.md for limits and the portalv2/real-storage release gate. Domain health (phase 4), Kronos evaluation (phase 6) and the remaining branding audit are pending. Branch investigation below is unchanged; no branches were deleted.
 
 ### 1. Reliability and first-call preview (this branch)
 - Recover resource-server initialization after facilitator failure and contain initialization failures in the route error boundary.

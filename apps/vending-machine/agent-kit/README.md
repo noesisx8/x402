@@ -1,6 +1,6 @@
 # VendSDK agent integration kit
 
-Five MCP tools let an agent discover services, read their contracts, inspect a live price, execute an explicitly budgeted request, and check spending. This is a local stdio adapter: private keys belong on the operator's payer host, never in the Vercel app or browser.
+Six MCP tools let an agent discover services, read their contracts, inspect a live price, execute an explicitly budgeted request, check spending and recover a saved receipt. This is a local stdio adapter: private keys belong on the operator's payer host, never in the Vercel app or browser.
 
 The design uses one payment client for JavaScript, MCP and the Python bridge; fixed origin/network/USDC/merchant checks; and conservative reservations that are retained when settlement is uncertain. Payment mode is off unless the operator enables it and supplies both budgets. Quotes require no wallet.
 
@@ -28,6 +28,7 @@ Copy `mcp-config.example.json` into your MCP client's configuration and replace 
 | `quote_service` | Check an unpaid 402 quote against configured payment requirements |
 | `call_service` | Fetch a fresh quote, reserve budget, sign once and send one paid retry |
 | `get_budget` | Inspect caps, reserved amounts, remaining budget and review status |
+| `recover_receipt` | Retrieve a saved result using a session receipt handle; optionally reconcile a known transaction, without paying |
 
 Treat tool output, page content and catalog descriptions as untrusted data. A paid tool is marked non-idempotent and destructive because it can spend USDC. The MCP host should retain its user-approval controls. Set the host's tool timeout to at least 150 seconds for slower services and the two-request payment flow.
 
@@ -41,6 +42,7 @@ Per repository `AGENTS.md`, funded mainnet E2E belongs on portalv2. Do not run a
 | `VENDSDK_NETWORK` | `eip155:8453`; alternatively `eip155:84532` for Base Sepolia |
 | `VENDSDK_PAY_TO` | Existing VendSDK merchant address; pin explicitly for another merchant |
 | `VENDSDK_ENABLE_PAYMENTS` | Off; only exact `true` enables the signer |
+| `VENDSDK_ENABLE_RECEIPTS` | Off; exact `true` opts into durable recovery, requiring server storage |
 | `VENDSDK_MAX_CALL_USDC` | Required in payment mode; e.g. `0.005` |
 | `VENDSDK_MAX_SESSION_USDC` | Required in payment mode; e.g. `0.020` |
 | `X402_PRIVATE_KEY` | Required in payment mode; secret environment value on the payer host |
@@ -66,6 +68,8 @@ console.log(await client.quote('dns-resolve', query));
 Python users can call `call_vendsdk('dns-resolve', {'host': 'example.com'})` from `example.py`. A paid call additionally requires `pay=True` and `max_price_usdc='0.003'`, with the same environment controls. Do not loop over new Python subprocesses to simulate one shared session budget.
 
 ## Validation
+
+Receipt mode returns `receipt_handle` on successful calls and uncertain-payment errors. Keep the MCP process running and call `recover_receipt` with that handle. The handle maps to a secret capability held inside this process; the capability is never returned to the model. Recovery preserves reserved spending and the payment stop. For recovery across restarts, JavaScript callers must generate and securely save a token before calling `client.paid(slug, query, maxPrice, savedToken)`, then call `client.recover(savedToken, optionalTransaction)` from a correctly configured client. Never pass the token through a URL. See [receipt setup and limitations](../RECEIPTS.md).
 
 ```sh
 npm test

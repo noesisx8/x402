@@ -13,8 +13,8 @@ async function session(fn, options) {
   const call = async (name, args = {}) => (await client.callTool({ name, arguments: args })).structuredContent;
   try { await fn({ client, call, f }); } finally { await client.close(); await server.close(); }
 }
-test("MCP initialize, five tools, pagination, describe, quote, pay, and budget", async () => session(async ({ client, call }) => {
-  const tools = await client.listTools(); assert.equal(tools.tools.length, 5);
+test("MCP initialize, six tools, pagination, describe, quote, pay, and budget", async () => session(async ({ client, call }) => {
+  const tools = await client.listTools(); assert.equal(tools.tools.length, 6);
   assert.equal(tools.tools.find(t => t.name === "call_service").annotations.idempotentHint, false);
   const page = await call("list_services"); assert.equal(page.services.length, 8);
   const second = await call("list_services", { cursor: page.next_cursor }); assert.equal(second.services.length, 8);

@@ -30,6 +30,21 @@ export default function DevelopersPage() {
         <p className="mt-3 text-gray-600 dark:text-zinc-300">Payments start disabled. Enable them on your payer host with a fixed merchant, network, per-call cap and session cap. The agent cannot raise those limits. An uncertain payment stops further purchases until an operator reviews it.</p>
         <p className="mt-3 text-sm text-gray-500 dark:text-zinc-400">Budgets apply to one running process. Restarting starts a new allowance. Store wallet keys on the payer host; never enter them in this website.</p>
       </section>
+      <section id="receipts" className="mt-10 rounded-xl border border-gray-200 p-6 dark:border-zinc-800">
+        <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">PAYMENT RECOVERY</p>
+        <h2 className="mt-2 text-2xl font-semibold">Recover a result without paying again.</h2>
+        <p className="mt-3 text-gray-600 dark:text-zinc-300">Enable receipts before a purchase. If the connection drops, your agent can retrieve the saved result once payment is confirmed. A pending outcome stays pending until it can be verified.</p>
+        <ul className="mt-4 space-y-2 text-sm text-gray-600 dark:text-zinc-400">
+          <li>Results are retained for 24 hours, up to 128 KiB per call.</li>
+          <li>Recovery requires your receipt access token. Keep it with your payment records.</li>
+          <li>Recovery never starts another payment or resets your spending allowance.</li>
+        </ul>
+        <p className="mt-4 text-sm text-gray-500 dark:text-zinc-400">Available for supported USDC authorizations when durable storage is configured. Enable it in the agent kit; existing calls do not automatically receive receipts.</p>
+        <div className="mt-5 flex flex-wrap gap-5 text-sm text-emerald-700 dark:text-emerald-400">
+          <a className="underline" href={`${repository}/../RECEIPTS.md`}>Receipt setup and recovery</a>
+          <a className="underline" href="/api/receipts">Check receipt availability</a>
+        </div>
+      </section>
       <nav className="mt-10 flex flex-wrap gap-5 text-sm text-emerald-700 dark:text-emerald-400" aria-label="Developer references">
         <a className="underline" href="/api/openapi.json">OpenAPI reference</a>
         <a className="underline" href="/.well-known/agent-services.json">Agent catalog</a>

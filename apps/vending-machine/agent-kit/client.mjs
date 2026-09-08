@@ -1,3 +1,4 @@
+import { randomBytes, randomUUID } from "node:crypto";
 const NETWORKS = {
   "eip155:8453": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
   "eip155:84532": "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
@@ -41,7 +42,7 @@ export async function readJson(response, cap = 1_000_000) {
 /** A single process/session budget. Reservations are never released after signing begins. */
 export class VendClient {
   constructor({ origin = "https://vendsdk.com", network = "eip155:8453", payTo = DEFAULT_PAYEE,
-    maxCall = "0", maxSession = "0", sign, fetchFn = fetch, allowLocalhost = false } = {}) {
+    maxCall = "0", maxSession = "0", sign, fetchFn = fetch, allowLocalhost = false, enableReceipts = false } = {}) {
     const base = new URL(origin);
     if (base.username || base.password || base.search || base.hash || base.pathname !== "/" ||
       (base.protocol !== "https:" && !(allowLocalhost && base.protocol === "http:" && base.hostname === "127.0.0.1"))) {
@@ -51,6 +52,7 @@ export class VendClient {
     this.origin = base.origin; this.network = network; this.payTo = payTo.toLowerCase();
     this.maxCall = microUsdc(maxCall); this.maxSession = microUsdc(maxSession);
     this.sign = sign; this.fetchFn = fetchFn; this.reserved = 0n; this.blocked = false;
+    this.enableReceipts = enableReceipts; this.receipts = new Map();
   }
   budget() {
     return { payments_enabled: Boolean(this.sign && this.maxCall > 0n && this.maxSession > 0n),
@@ -107,28 +109,54 @@ export class VendClient {
     return { service: slug, url: q.url, price_usdc: dollars(q.amount), network: this.network,
       pay_to: this.payTo, asset: q.accepted.asset, payment_sent: false };
   }
-  async paid(slug, query, maxPrice) {
+  async paid(slug, query, maxPrice, receiptToken) {
     if (!this.budget().payments_enabled) throw new VendError("payments_disabled", "Payments are disabled. The operator must configure a signer and explicit per-call/session budgets.");
     if (this.blocked) throw new VendError("review_required", "A previous payment outcome is uncertain. Operator review is required; do not create another payment.");
     const limit = microUsdc(maxPrice);
+    if (receiptToken && !this.enableReceipts) throw new VendError("receipts_disabled", "Enable receipts before supplying a saved receipt token.");
+    if (receiptToken && !/^[a-f0-9]{64}$/.test(receiptToken)) throw new VendError("invalid_receipt_token", "Use a securely generated 32-byte lowercase hex receipt token.");
+    if (this.enableReceipts) {
+      const support = await this.request(`${this.origin}/api/receipts`);
+      if (!support.ok || (await readJson(support)).available !== true) throw new VendError("receipts_unavailable", "Durable receipts are unavailable. No payment was attempted.");
+    }
     const q = await this.challenge(slug, query);
     // Synchronous reservation after the quote protects concurrent tool calls.
     if (this.blocked || q.amount > limit || q.amount > this.maxCall || this.reserved + q.amount > this.maxSession) throw new VendError("budget_exceeded", "This call exceeds its price cap or remaining session budget, or payment review is required.");
     this.reserved += q.amount;
+    const receiptHandle = this.enableReceipts ? randomUUID() : undefined;
+    const token = receiptHandle ? receiptToken ?? randomBytes(32).toString("hex") : undefined;
+    if (receiptHandle) this.receipts.set(receiptHandle, token);
     try {
       const header = await this.sign(q.required);
       if (typeof header !== "string" || !header || header.length > 64_000) throw new Error("invalid signature");
-      const res = await this.request(q.url, { "PAYMENT-SIGNATURE": header });
+      const res = await this.request(q.url, { "PAYMENT-SIGNATURE": header, ...(token ? { "X-VendSDK-Receipt": token } : {}) });
       if (!res.ok) { await res.body?.cancel(); throw new Error("paid request failed"); }
       const settlement = decodedHeader(res.headers.get("payment-response"));
       if (settlement.success !== true || settlement.network !== this.network || typeof settlement.transaction !== "string" || !/^0x[a-fA-F0-9]{64}$/.test(settlement.transaction)) throw new Error("unconfirmed settlement");
       const result = await readJson(res);
       return { service: slug, price_usdc: dollars(q.amount), transaction: settlement.transaction,
-        network: this.network, result, budget: this.budget() };
+        network: this.network, result, budget: this.budget(), ...(receiptHandle ? { receipt_handle: receiptHandle } : {}) };
     } catch {
       this.blocked = true;
-      throw new VendError("payment_outcome_unknown", "Payment was attempted but delivery/settlement could not be confirmed. Funds may have settled. Budget remains reserved; stop and have the operator inspect settlement before paying again.");
+      const error = new VendError("payment_outcome_unknown", "Payment was attempted but delivery/settlement could not be confirmed. Funds may have settled. Budget remains reserved; use receipt recovery if available and have the operator inspect settlement before paying again.");
+      if (receiptHandle) error.receipt_handle = receiptHandle;
+      throw error;
     }
+  }
+  async recoverHandle(handle, transaction) {
+    const token = this.receipts.get(handle);
+    if (!token) throw new VendError("unknown_receipt_handle", "Use a receipt_handle from this running client. Across restarts, the operator needs the token saved before payment.");
+    return this.recover(token, transaction);
+  }
+  async recover(token, transaction) {
+    if (!/^[a-f0-9]{64}$/.test(token) || (transaction && !/^0x[a-fA-F0-9]{64}$/.test(transaction))) throw new VendError("invalid_receipt_input", "Supply a saved receipt token and, optionally, a transaction hash.");
+    const response = await this.fetchFn(`${this.origin}/api/receipts`, { method: "POST", redirect: "error", signal: AbortSignal.timeout(15000),
+      headers: { Authorization: `Bearer ${token}`, ...(transaction ? { "X-VendSDK-Transaction": transaction } : {}) } });
+    const body = await readJson(response);
+    if (!response.ok) throw new VendError("receipt_unavailable", `Recovery returned HTTP ${response.status}. Do not pay again; check receipt retention or transaction confirmation.`);
+    if (response.status === 200 && (body.state !== "settled" || body.network !== this.network || !/^0x[a-fA-F0-9]{64}$/.test(body.transaction))) throw new VendError("invalid_receipt", "The recovered settlement did not match the configured network.");
+    // Recovery never signs, sends payment, releases a reservation or clears the stop.
+    return { ...body, payment_sent: false, budget: this.budget() };
   }
 }
 
@@ -145,5 +173,6 @@ export function clientFromEnv(env = process.env) {
     return encodePaymentSignatureHeader(await client.createPaymentPayload(required));
   } : undefined;
   return new VendClient({ origin: env.VENDSDK_ORIGIN, network, payTo: env.VENDSDK_PAY_TO ?? DEFAULT_PAYEE,
-    maxCall: enabled ? env.VENDSDK_MAX_CALL_USDC : "0", maxSession: enabled ? env.VENDSDK_MAX_SESSION_USDC : "0", sign });
+    maxCall: enabled ? env.VENDSDK_MAX_CALL_USDC : "0", maxSession: enabled ? env.VENDSDK_MAX_SESSION_USDC : "0", sign,
+    enableReceipts: env.VENDSDK_ENABLE_RECEIPTS === "true" });
 }

@@ -3,6 +3,7 @@ import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { bazaarResourceServerExtension } from "@x402/extensions/bazaar";
 import { paymentIdentifierResourceServerExtension } from "@x402/extensions/payment-identifier";
 import { CAIP_NETWORK, serverEnv } from "@/lib/env";
+import { installReceiptHooks } from "./receipts";
 import {
   createCdpFacilitatorAuthHeaders,
   shouldUseCdpFacilitatorAuth,
@@ -81,6 +82,8 @@ export function getResourceServer(): Promise<x402ResourceServer> {
         .register(network, new ExactEvmScheme())
         .registerExtension(bazaarExtensionFixed as typeof bazaarResourceServerExtension)
         .registerExtension(paymentIdentifierResourceServerExtension);
+
+      installReceiptHooks(server);
 
       await server.initialize();
       resourceServer = server;
