@@ -319,10 +319,7 @@ export const fetchTextHandler: VendingHandler = async (_req, query) => {
   const page = await fetchPageText(url, maxChars);
   const format = String(query.format ?? "text").toLowerCase();
   if (!["text", "markdown", "structured"].includes(format)) throw new Error("invalid_format");
-  const markdown = page.text.replace(/\s*\|\s*/g, " | ").replace(/\s*\n\s*/g, "\n").trim();
-  const headings = [...page.text.matchAll(/(?:^|\n)\s{0,3}(#{1,6})\s+(.+)/g)].map((m) => ({ level: m[1].length, text: m[2].trim() }));
-  const links = [...page.text.matchAll(/https?:\/\/[^\s)]+/g)].map((m) => m[0]).slice(0, 100);
-  return { ...page, retrieved_at: new Date().toISOString(), format, markdown: format === "text" ? null : markdown, headings: format === "structured" ? headings : [], links: format === "structured" ? links : [], source: "fetch+html-strip" };
+  return { ...page, retrieved_at: new Date().toISOString(), format, markdown: format === "text" ? "" : page.markdown, headings: format === "structured" ? page.headings : [], links: format === "structured" ? page.links : [], source: "fetch+html-parse" };
 };
 
 /** Base mainnet ETH + USDC balances — agent wallets / treasury checks. */

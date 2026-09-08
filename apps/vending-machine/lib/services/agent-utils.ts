@@ -1,4 +1,5 @@
 import { publicRequest, publicUrl } from "@/lib/services/public-fetch";
+import { extractHtml } from "@/lib/services/extraction";
 /**
  * Agent-hot utilities: safe fetch, text extract, Base chain reads.
  * All fail closed; SSRF guards reuse infra helpers.
@@ -135,6 +136,9 @@ export async function fetchPageText(urlRaw: string, maxChars = 12_000): Promise<
   text: string;
   chars: number;
   truncated: boolean;
+  markdown: string;
+  headings: { level: number; text: string }[];
+  links: { text: string; url: string }[];
 }> {
   const got = await safeHttpGet(urlRaw, 200_000);
   if (got.status >= 400) throw new Error(`upstream_${got.status}`);
@@ -142,6 +146,7 @@ export async function fetchPageText(urlRaw: string, maxChars = 12_000): Promise<
   const titleMatch = raw.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
   const title = titleMatch ? htmlToText(titleMatch[1]).slice(0, 200) : null;
   const isHtml = (got.content_type ?? "").includes("html") || /<html/i.test(raw);
+  const extracted = isHtml ? extractHtml(raw, got.final_url, maxChars) : null;
   const full = isHtml ? htmlToText(raw) : raw.replace(/\s+/g, " ").trim();
   const truncated = got.truncated || full.length > maxChars;
   return {
@@ -149,10 +154,13 @@ export async function fetchPageText(urlRaw: string, maxChars = 12_000): Promise<
     final_url: got.final_url,
     status: got.status,
     ms: got.ms,
-    title,
-    text: truncated ? full.slice(0, maxChars) : full,
-    chars: Math.min(full.length, maxChars),
-    truncated,
+    title: extracted?.title ?? title,
+    text: extracted?.text ?? (truncated ? full.slice(0, maxChars) : full),
+    chars: extracted?.text.length ?? Math.min(full.length, maxChars),
+    truncated: truncated || Boolean(extracted?.truncated),
+    markdown: extracted?.markdown ?? full.slice(0, maxChars),
+    headings: extracted?.headings ?? [],
+    links: extracted?.links ?? [],
   };
 }
 

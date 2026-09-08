@@ -10,6 +10,8 @@
     "lint": "next lint",
     "check": "tsc --noEmit",
     "test:unit": "node scripts/phase0-unit.mjs",
+    "test:contracts": "node --import tsx --test scripts/agent-contracts.test.ts",
+    "test:agent": "npm --prefix agent-kit test",
     "test:live": "npx --yes tsx scripts/verify-live-data.mjs",
     "smoke:unpaid": "node scripts/smoke-unpaid.mjs",
     "smoke:paid": "node scripts/paid-fetch.mjs",

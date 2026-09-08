@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "vendsdk": {
+      "command": "node",
+      "args": ["/absolute/path/to/x402/apps/vending-machine/agent-kit/server.mjs"],
+      "env": {
+        "VENDSDK_ORIGIN": "https://vendsdk.com",
+        "VENDSDK_NETWORK": "eip155:8453",
+        "VENDSDK_ENABLE_PAYMENTS": "false"
+      }
+    }
+  }
+}

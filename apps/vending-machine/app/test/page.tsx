@@ -240,7 +240,7 @@ export default function TestPage() {
           </details>
         </section>
       )}
-      <p className="mt-4 text-xs text-gray-500 dark:text-zinc-400"><a href="/api/openapi.json" className="underline">OpenAPI reference</a> · A 402 response is the price quote. Payment requires your wallet approval.</p>
+      <p className="mt-4 text-xs text-gray-500 dark:text-zinc-400"><a href="/api/openapi.json" className="underline">OpenAPI reference</a> · <a href="/developers" className="underline">Agent integration kit</a> · A 402 response is the price quote. Payment requires your wallet approval.</p>
       <pre aria-live="polite" className="mt-6 overflow-auto rounded border border-gray-200 bg-gray-50/80 p-4 text-xs whitespace-pre-wrap text-gray-800 dark:border-zinc-800 dark:bg-black/40 dark:text-zinc-200">
         {out}
       </pre>
