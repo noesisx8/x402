@@ -1,3 +1,4 @@
+import { publicRequest, publicUrl } from "@/lib/services/public-fetch";
 /**
  * Agent-hot utilities: safe fetch, text extract, Base chain reads.
  * All fail closed; SSRF guards reuse infra helpers.
@@ -77,28 +78,28 @@ export type HttpGetResult = {
 const MAX_BODY = 48_000; // ~48KB agent-friendly cap
 
 export async function safeHttpGet(urlRaw: string, maxBytes = MAX_BODY): Promise<HttpGetResult> {
-  const u = assertPublicHttpUrl(urlRaw);
-  await assertPublicHostResolves(u.hostname);
+  const u = publicUrl(urlRaw);
   const started = Date.now();
-  const res = await fetch(u.toString(), {
-    method: "GET",
-    redirect: "follow",
-    signal: AbortSignal.timeout(8000),
-    headers: {
-      "User-Agent": "x402-vending-machine/0.2 (+agent-fetch)",
-      Accept: "text/html,application/json,text/plain,*/*",
-    },
-  });
-  const final = new URL(res.url);
-  await assertPublicHostResolves(final.hostname).catch(() => {
-    throw new Error("redirect_private_or_bad_host");
-  });
-
-  const buf = new Uint8Array(await res.arrayBuffer());
-  const truncated = buf.byteLength > maxBytes;
-  const slice = truncated ? buf.slice(0, maxBytes) : buf;
+  let current = u.toString();
+  let got: Awaited<ReturnType<typeof publicRequest>> | undefined;
+  for (let hop = 0; hop < 6; hop++) {
+    const remaining = 12000 - (Date.now() - started);
+    if (remaining <= 0) throw new Error("upstream_timeout");
+    got = await publicRequest(current, "GET", maxBytes, remaining);
+    const location = got.response.headers.get("location");
+    if ([301,302,303,307,308].includes(got.response.status) && location) {
+      current = publicUrl(new URL(location, current).toString()).toString();
+      if (hop === 5) throw new Error("upstream_redirect_limit");
+      continue;
+    }
+    break;
+  }
+  if (!got) throw new Error("upstream_failure");
+  const res = got.response;
+  const truncated = got.truncated;
   const ct = res.headers.get("content-type") ?? "";
-  const text = new TextDecoder("utf-8", { fatal: false }).decode(slice);
+  if (!/text\/|application\/(?:json|[^;]+\+json|xhtml\+xml)/i.test(ct)) throw new Error("invalid_content_type");
+  const text = await res.text();
 
   let body_json: unknown | null = null;
   let body_text: string | null = text;
@@ -113,12 +114,12 @@ export async function safeHttpGet(urlRaw: string, maxBytes = MAX_BODY): Promise<
 
   return {
     url: u.toString(),
-    final_url: res.url,
+    final_url: current,
     status: res.status,
     ok: res.ok,
     ms: Date.now() - started,
     content_type: ct || null,
-    bytes: buf.byteLength,
+    bytes: got.bytes,
     truncated,
     body_text,
     body_json,
@@ -142,7 +143,7 @@ export async function fetchPageText(urlRaw: string, maxChars = 12_000): Promise<
   const title = titleMatch ? htmlToText(titleMatch[1]).slice(0, 200) : null;
   const isHtml = (got.content_type ?? "").includes("html") || /<html/i.test(raw);
   const full = isHtml ? htmlToText(raw) : raw.replace(/\s+/g, " ").trim();
-  const truncated = full.length > maxChars;
+  const truncated = got.truncated || full.length > maxChars;
   return {
     url: got.url,
     final_url: got.final_url,

@@ -317,7 +317,12 @@ export const fetchTextHandler: VendingHandler = async (_req, query) => {
   if (!url) throw new Error("missing url");
   const maxChars = Math.min(20_000, Math.max(500, Number(query.max_chars ?? 12_000) || 12_000));
   const page = await fetchPageText(url, maxChars);
-  return { ...page, source: "fetch+html-strip" };
+  const format = String(query.format ?? "text").toLowerCase();
+  if (!["text", "markdown", "structured"].includes(format)) throw new Error("invalid_format");
+  const markdown = page.text.replace(/\s*\|\s*/g, " | ").replace(/\s*\n\s*/g, "\n").trim();
+  const headings = [...page.text.matchAll(/(?:^|\n)\s{0,3}(#{1,6})\s+(.+)/g)].map((m) => ({ level: m[1].length, text: m[2].trim() }));
+  const links = [...page.text.matchAll(/https?:\/\/[^\s)]+/g)].map((m) => m[0]).slice(0, 100);
+  return { ...page, retrieved_at: new Date().toISOString(), format, markdown: format === "text" ? null : markdown, headings: format === "structured" ? headings : [], links: format === "structured" ? links : [], source: "fetch+html-strip" };
 };
 
 /** Base mainnet ETH + USDC balances — agent wallets / treasury checks. */

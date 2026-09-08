@@ -1,3 +1,4 @@
+import { parameterSchema, outputSchema } from "@/lib/services/contracts";
 import { NextResponse } from "next/server";
 import { VENDING_SERVICES } from "@/lib/services/registry";
 import { serverEnv } from "@/lib/env";
@@ -23,18 +24,15 @@ export async function GET() {
         parameters: s.queryParams.map((p) => ({
           name: p.name, in: "query", required: !!p.required,
           description: p.description,
-          schema: { type: "string" },
-          example: s.discovery?.exampleQuery[p.name],
+          schema: parameterSchema(s.slug, p.name),
+          example: parameterSchema(s.slug,p.name).type === "integer" ? Number(s.discovery?.exampleQuery[p.name]) || parameterSchema(s.slug,p.name).default : s.discovery?.exampleQuery[p.name],
         })),
         responses: {
           "200": {
             description: "Paid JSON payload",
             headers: { "PAYMENT-RESPONSE": { description: "Base64 x402 settlement response", schema: { type: "string" } } },
             content: { "application/json": {
-              schema: { type: "object", properties: {
-                service: { type: "string", const: s.slug }, ok: { type: "boolean", const: true },
-                ...(s.discovery?.outputSchema ?? {}),
-              }, required: ["service", "ok"], additionalProperties: true },
+              schema: outputSchema(s),
               example: s.discovery?.exampleOutput,
             } },
           },

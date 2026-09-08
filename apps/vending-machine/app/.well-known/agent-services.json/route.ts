@@ -1,3 +1,4 @@
+import { inputSchema, outputSchema } from "@/lib/services/contracts";
 import { NextResponse } from "next/server";
 import { VENDING_SERVICES } from "@/lib/services/registry";
 import { serviceApiPath } from "@/lib/services/types";
@@ -25,6 +26,8 @@ export async function GET() {
       method: "GET",
       url: base ? `${base}${serviceApiPath(s.slug)}` : serviceApiPath(s.slug),
       query_params: s.queryParams,
+      input_schema: inputSchema(s),
+      output_schema: outputSchema(s),
     })),
   });
 }

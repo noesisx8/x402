@@ -1,3 +1,4 @@
+import { validInput, validOutput } from "@/lib/services/validation";
 import { NextRequest, NextResponse } from "next/server";
 import { withX402 } from "@x402/next";
 import { getResourceServer } from "@/lib/x402/resource-server";
@@ -124,6 +125,9 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
       payerHint,
     });
   }
+
+  const query = Object.fromEntries(new URL(request.url).searchParams);
+  if (!validInput(SERVICES_BY_SLUG[slug], query)) return NextResponse.json({ error: "invalid_request", retryable: false }, { status: 400 });
 
   try {
     const handler = await ensureWrapped(slug);
