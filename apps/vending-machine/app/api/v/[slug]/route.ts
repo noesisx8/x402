@@ -8,7 +8,10 @@ import {
   payerHintFromPaymentHeader,
   userAgentHint,
 } from "@/lib/analytics";
-import { checkRateLimit, clientIpFromHeaders } from "@/lib/rate-limit";
+import {
+  checkVendingRequestRateLimit,
+  paymentHeaderFromHeaders,
+} from "@/lib/rate-limit";
 
 /** Kronos + multi-leg bundles need headroom; Pro default allows up to 60s. */
 export const maxDuration = 60;
@@ -17,15 +20,6 @@ export const runtime = "nodejs";
 type Wrapped = (request: NextRequest) => Promise<NextResponse>;
 
 const wrappedHandlers: Record<string, Wrapped> = {};
-
-function paymentHeader(request: NextRequest): string | null {
-  return (
-    request.headers.get("payment-signature") ??
-    request.headers.get("PAYMENT-SIGNATURE") ??
-    request.headers.get("x-payment") ??
-    request.headers.get("X-PAYMENT")
-  );
-}
 
 async function ensureWrapped(slug: string): Promise<Wrapped | null> {
   const svc = SERVICES_BY_SLUG[slug];
@@ -79,7 +73,7 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
   const started = Date.now();
   const { slug } = await ctx.params;
   const ua = userAgentHint(request.headers.get("user-agent"));
-  const payHdr = paymentHeader(request);
+  const payHdr = paymentHeaderFromHeaders(request.headers);
   const hasPayment = Boolean(payHdr);
   const payerHint = payerHintFromPaymentHeader(payHdr);
 
@@ -87,14 +81,9 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
     return NextResponse.json({ error: "unknown_service", slug }, { status: 404 });
   }
 
-  // Baseline applies before verification so arbitrary payment headers cannot bypass it.
-  {
-    const ip = clientIpFromHeaders(request.headers);
-    const baseline = checkRateLimit(`requests:${ip}`, 120, 60_000);
-    const rl = baseline.allowed && !hasPayment
-      ? checkRateLimit(`unpaid:${ip}:${slug}`)
-      : baseline;
-    if (!rl.allowed) {
+  const { rateLimit: rl } = checkVendingRequestRateLimit(request.headers, slug);
+  // The shared helper applies the baseline before inspecting payment state.
+  if (!rl.allowed) {
       await logCall({
         event: "rate_limited",
         slug,
@@ -112,7 +101,6 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
           },
         },
       );
-    }
   }
   if (hasPayment) {
     await logCall({

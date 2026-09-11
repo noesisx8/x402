@@ -6,9 +6,7 @@ import {
   createCdpFacilitatorAuthHeaders,
   shouldUseCdpFacilitatorAuth,
 } from "@/lib/x402/cdp-auth";
-
-let resourceServer: x402ResourceServer | null = null;
-let initPromise: Promise<x402ResourceServer> | null = null;
+import { retryableInitializer } from "@/lib/x402/retryable-initializer";
 
 /**
  * Wrap Bazaar enrich so Next.js dynamic `/api/v/[slug]` does not collapse
@@ -52,42 +50,35 @@ const bazaarExtensionFixed = {
  * Shared x402 resource server (facilitator verify/settle + CDP Bazaar extension).
  * Initialized once per serverless isolate; safe to reuse across routes.
  */
+const initializeResourceServer = retryableInitializer(async () => {
+  const network = CAIP_NETWORK[serverEnv.X402_NETWORK_MODE];
+  const useCdpAuth = shouldUseCdpFacilitatorAuth(
+    serverEnv.X402_FACILITATOR_URL,
+    serverEnv.CDP_API_KEY_ID,
+    serverEnv.CDP_API_KEY_SECRET,
+  );
+
+  const facilitator = new HTTPFacilitatorClient({
+    url: serverEnv.X402_FACILITATOR_URL,
+    ...(useCdpAuth
+      ? {
+          createAuthHeaders: () =>
+            createCdpFacilitatorAuthHeaders(
+              serverEnv.CDP_API_KEY_ID!,
+              serverEnv.CDP_API_KEY_SECRET!,
+            ),
+        }
+      : {}),
+  });
+
+  const server = new x402ResourceServer(facilitator)
+    .register(network, new ExactEvmScheme())
+    .registerExtension(bazaarExtensionFixed as typeof bazaarResourceServerExtension);
+
+  await server.initialize();
+  return server;
+});
+
 export function getResourceServer(): Promise<x402ResourceServer> {
-  if (resourceServer) return Promise.resolve(resourceServer);
-  if (!initPromise) {
-    initPromise = (async () => {
-      const network = CAIP_NETWORK[serverEnv.X402_NETWORK_MODE];
-      const useCdpAuth = shouldUseCdpFacilitatorAuth(
-        serverEnv.X402_FACILITATOR_URL,
-        serverEnv.CDP_API_KEY_ID,
-        serverEnv.CDP_API_KEY_SECRET,
-      );
-
-      const facilitator = new HTTPFacilitatorClient({
-        url: serverEnv.X402_FACILITATOR_URL,
-        ...(useCdpAuth
-          ? {
-              createAuthHeaders: () =>
-                createCdpFacilitatorAuthHeaders(
-                  serverEnv.CDP_API_KEY_ID!,
-                  serverEnv.CDP_API_KEY_SECRET!,
-                ),
-            }
-          : {}),
-      });
-
-      const server = new x402ResourceServer(facilitator)
-        .register(network, new ExactEvmScheme())
-        .registerExtension(bazaarExtensionFixed as typeof bazaarResourceServerExtension);
-
-      await server.initialize();
-      resourceServer = server;
-      return server;
-    })().catch((error) => {
-      // A transient facilitator outage must not poison this isolate permanently.
-      initPromise = null;
-      throw error;
-    });
-  }
-  return initPromise;
+  return initializeResourceServer();
 }

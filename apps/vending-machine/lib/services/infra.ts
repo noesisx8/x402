@@ -389,17 +389,42 @@ function dnToObject(dn: string | undefined | null): Record<string, string> | nul
   return Object.keys(out).length ? out : { cn: dn };
 }
 
-export async function tlsCertPeek(hostRaw: string, portRaw?: string | number): Promise<TlsResult> {
+export async function tlsCertPeek(
+  hostRaw: string,
+  portRaw?: string | number,
+  options: {
+    timeoutMs?: number;
+    resolveAddress?: typeof resolvePublicAddress;
+    allowedPorts?: readonly number[];
+  } = {},
+): Promise<TlsResult> {
   const host = normalizeHost(hostRaw);
   const port = Number(portRaw ?? 443) || 443;
-  if (!Number.isInteger(port) || (port !== 443 && port !== 8443)) {
+  const allowedPorts = options.allowedPorts ?? [443, 8443];
+  if (!Number.isInteger(port) || !allowedPorts.includes(port)) {
     throw new Error("port_not_allowed");
   }
 
   const started = Date.now();
-  const deadline = started + 7000;
-  const target = await resolvePublicAddress(host, deadline);
+  const deadline = started + (options.timeoutMs ?? 7000);
+  const target = await (options.resolveAddress ?? resolvePublicAddress)(host, deadline);
   return new Promise<TlsResult>((resolve, reject) => {
+    let settled = false;
+    let absoluteTimer: NodeJS.Timeout | undefined;
+    const fail = (error: Error) => {
+      if (settled) return;
+      settled = true;
+      if (absoluteTimer) clearTimeout(absoluteTimer);
+      socket.destroy();
+      reject(error);
+    };
+    const succeed = (result: TlsResult) => {
+      if (settled) return;
+      settled = true;
+      if (absoluteTimer) clearTimeout(absoluteTimer);
+      socket.destroy();
+      resolve(result);
+    };
     const socket = tls.connect(
       {
         host: target.address,
@@ -457,22 +482,22 @@ export async function tlsCertPeek(hostRaw: string, portRaw?: string | number): P
             fingerprint256: cert?.fingerprint256 ?? null,
             ms: Date.now() - started,
           };
-          socket.end();
-          resolve(result);
+          succeed(result);
         } catch (e) {
-          socket.destroy();
-          reject(new Error(`tls_parse_failed: ${String(e).slice(0, 100)}`));
+          fail(new Error(`tls_parse_failed: ${String(e).slice(0, 100)}`));
         }
       },
     );
 
     socket.on("error", (err) => {
-      socket.destroy();
-      reject(new Error(`tls_failed: ${String(err.message).slice(0, 140)}`));
+      fail(new Error(`tls_failed: ${String(err.message).slice(0, 140)}`));
     });
+    absoluteTimer = setTimeout(
+      () => fail(new Error("tls_timeout")),
+      Math.max(1, deadline - Date.now()),
+    );
     socket.setTimeout(Math.max(1, deadline - Date.now()), () => {
-      socket.destroy();
-      reject(new Error("tls_timeout"));
+      fail(new Error("tls_timeout"));
     });
   });
 }

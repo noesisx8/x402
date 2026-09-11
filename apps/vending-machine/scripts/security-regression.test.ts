@@ -1,14 +1,17 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
+import { createServer as createTcpServer } from "node:net";
 import test from "node:test";
 import { settledBundlePart } from "../lib/services/handlers";
-import { _resetRateLimitForTests, checkRateLimit } from "../lib/rate-limit";
+import { tlsCertPeek } from "../lib/services/infra";
+import { _resetRateLimitForTests, checkVendingRequestRateLimit } from "../lib/rate-limit";
 import {
   isPublicIp,
   publicRequest,
   publicUrl,
   resolvePublicAddress,
 } from "../lib/services/public-network";
+import { retryableInitializer } from "../lib/x402/retryable-initializer";
 
 test("public address policy rejects local, private, reserved, and mapped addresses", () => {
   for (const address of [
@@ -21,6 +24,8 @@ test("public address policy rejects local, private, reserved, and mapped address
     "fe80::1",
     "::ffff:127.0.0.1",
     "::ffff:7f00:1",
+    "64:ff9b::a9fe:a9fe",
+    "64:ff9b:1::a9fe:a9fe",
   ]) {
     assert.equal(isPublicIp(address), false, address);
   }
@@ -35,7 +40,10 @@ test("HTTP deadline is absolute even while an upstream drips bytes", async (t) =
     response.on("close", () => clearInterval(timer));
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  t.after(() => server.close());
+  t.after(() => {
+    server.closeAllConnections();
+    server.close();
+  });
   const address = server.address();
   assert(address && typeof address === "object");
 
@@ -50,6 +58,38 @@ test("HTTP deadline is absolute even while an upstream drips bytes", async (t) =
       async () => ({ address: "127.0.0.1", family: 4 }),
     ),
     /upstream_timeout/,
+  );
+  assert(Date.now() - started < 250);
+});
+
+test("TLS deadline is absolute while a peer drips an incomplete handshake", async (t) => {
+  const sockets = new Set<import("node:net").Socket>();
+  const server = createTcpServer((socket) => {
+    sockets.add(socket);
+    // Valid TLS record header declaring a 16 KiB handshake body, delivered slowly.
+    socket.write(Buffer.from([0x16, 0x03, 0x03, 0x40, 0x00]));
+    const timer = setInterval(() => {
+      if (socket.writable) socket.write(Buffer.from([0]));
+    }, 10);
+    socket.on("close", () => clearInterval(timer));
+    socket.on("error", () => clearInterval(timer));
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => {
+    sockets.forEach((socket) => socket.destroy());
+    server.close();
+  });
+  const address = server.address();
+  assert(address && typeof address === "object");
+
+  const started = Date.now();
+  await assert.rejects(
+    tlsCertPeek("example.test", address.port, {
+      timeoutMs: 60,
+      resolveAddress: async () => ({ address: "127.0.0.1", family: 4 }),
+      allowedPorts: [address.port],
+    }),
+    /tls_timeout/,
   );
   assert(Date.now() - started < 250);
 });
@@ -93,12 +133,46 @@ test("bundle partial failures never serialize the underlying exception", () => {
   assert.equal(JSON.stringify(part).includes(marker), false);
 });
 
-test("baseline request bucket rejects the 121st request regardless of payment state", () => {
+test("a forged payment header cannot bypass route request throttling", () => {
   _resetRateLimitForTests();
+  const headers = new Headers({
+    "x-forwarded-for": "203.0.113.10",
+    "payment-signature": "forged",
+  });
   for (let count = 0; count < 120; count++) {
-    assert.equal(checkRateLimit("requests:test", 120, 60_000).allowed, true);
+    assert.equal(checkVendingRequestRateLimit(headers, "dns-resolve").rateLimit.allowed, true);
   }
-  assert.equal(checkRateLimit("requests:test", 120, 60_000).allowed, false);
+  assert.equal(checkVendingRequestRateLimit(headers, "dns-resolve").rateLimit.allowed, false);
+});
+
+test("failed initialization is retried while concurrent callers share one attempt", async () => {
+  let attempts = 0;
+  let rejectFirst: ((error: Error) => void) | undefined;
+  const initialize = retryableInitializer(async () => {
+    attempts += 1;
+    if (attempts === 1) {
+      return new Promise<{ ready: true }>((_resolve, reject) => {
+        rejectFirst = reject;
+      });
+    }
+    return { ready: true };
+  });
+
+  const firstAttempt = initialize();
+  const concurrentAttempt = initialize();
+  assert.equal(firstAttempt, concurrentAttempt);
+  assert.equal(attempts, 1);
+  const failedResults = Promise.allSettled([firstAttempt, concurrentAttempt]);
+  rejectFirst?.(new Error("temporary_facilitator_failure"));
+  const results = await failedResults;
+  assert.equal(results[0].status, "rejected");
+  assert.equal(results[1].status, "rejected");
+  assert.match(String(results[0].status === "rejected" && results[0].reason), /temporary_facilitator_failure/);
+
+  const [first, second] = await Promise.all([initialize(), initialize()]);
+  assert.deepEqual(first, { ready: true });
+  assert.equal(first, second);
+  assert.equal(attempts, 2);
 });
 
 test("stalled analytics reads and writes return within their deadline", async () => {
