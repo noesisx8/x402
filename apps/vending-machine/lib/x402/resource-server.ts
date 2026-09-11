@@ -83,7 +83,11 @@ export function getResourceServer(): Promise<x402ResourceServer> {
       await server.initialize();
       resourceServer = server;
       return server;
-    })();
+    })().catch((error) => {
+      // A transient facilitator outage must not poison this isolate permanently.
+      initPromise = null;
+      throw error;
+    });
   }
   return initPromise;
 }

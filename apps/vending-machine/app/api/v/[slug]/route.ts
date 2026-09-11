@@ -55,11 +55,11 @@ async function ensureWrapped(slug: string): Promise<Wrapped | null> {
         slug,
         ms: Date.now() - started,
         status: 400,
-        error: String(e).slice(0, 200),
+        error: "service_request_failed",
       });
       // status >= 400 → withX402 skips settle (idempotent: no charge on bad input)
       return NextResponse.json(
-        { service: slug, ok: false, error: String(e) },
+        { service: slug, ok: false, error: "service_request_failed" },
         { status: 400 },
       );
     }
@@ -87,10 +87,13 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
     return NextResponse.json({ error: "unknown_service", slug }, { status: 404 });
   }
 
-  // Phase 0.5 — throttle unpaid 402 spam (per IP + slug, per isolate)
-  if (!hasPayment) {
+  // Baseline applies before verification so arbitrary payment headers cannot bypass it.
+  {
     const ip = clientIpFromHeaders(request.headers);
-    const rl = checkRateLimit(`unpaid:${ip}:${slug}`);
+    const baseline = checkRateLimit(`requests:${ip}`, 120, 60_000);
+    const rl = baseline.allowed && !hasPayment
+      ? checkRateLimit(`unpaid:${ip}:${slug}`)
+      : baseline;
     if (!rl.allowed) {
       await logCall({
         event: "rate_limited",
@@ -110,7 +113,8 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
         },
       );
     }
-  } else {
+  }
+  if (hasPayment) {
     await logCall({
       event: "payment_present",
       slug,
@@ -119,12 +123,11 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
     });
   }
 
-  const handler = await ensureWrapped(slug);
-  if (!handler) {
-    return NextResponse.json({ error: "unknown_service", slug }, { status: 404 });
-  }
-
   try {
+    const handler = await ensureWrapped(slug);
+    if (!handler) {
+      return NextResponse.json({ error: "unknown_service", slug }, { status: 404 });
+    }
     const res = await handler(request);
     const ms = Date.now() - started;
 
@@ -175,7 +178,7 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
       ms: Date.now() - started,
       userAgentHint: ua,
       payerHint,
-      error: String(e).slice(0, 200),
+      error: "payment_pipeline_failed",
     });
     return NextResponse.json(
       { error: "facilitator_or_server_error", message: "payment pipeline failed" },

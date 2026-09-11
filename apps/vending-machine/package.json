@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "check": "tsc --noEmit",
-    "test:unit": "node scripts/phase0-unit.mjs",
+    "test:unit": "node scripts/phase0-unit.mjs && node --import tsx scripts/security-regression.test.ts",
     "test:live": "npx --yes tsx scripts/verify-live-data.mjs",
     "smoke:unpaid": "node scripts/smoke-unpaid.mjs",
     "smoke:paid": "node scripts/paid-fetch.mjs",
@@ -36,6 +36,7 @@
     "autoprefixer": "^10.4.20",
     "postcss": "^8.5.18",
     "tailwindcss": "^3.4.17",
+    "tsx": "^4.23.13",
     "typescript": "^5.7.3"
   },
   "overrides": {
