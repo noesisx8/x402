@@ -18,6 +18,13 @@ import {
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** Stable public representation for a bundle leg; never expose exception text. */
+export function settledBundlePart<T>(result: PromiseSettledResult<T>) {
+  return result.status === "fulfilled"
+    ? { ok: true as const, data: result.value }
+    : { ok: false as const, error: "upstream_check_failed" };
+}
+
 /** Expanded disposable / throwaway domains (heuristic list — not a paid blocklist). */
 const DISPOSABLE_DOMAINS = new Set(
   [
@@ -234,18 +241,13 @@ export const bundleInfraHandler: VendingHandler = async (_req, query) => {
     tlsCertPeek(host),
   ]);
 
-  const pick = <T,>(r: PromiseSettledResult<T>) =>
-    r.status === "fulfilled"
-      ? { ok: true as const, data: r.value }
-      : { ok: false as const, error: String(r.reason).slice(0, 160) };
-
-  const dns = pick(dnsSettled);
-  const head = pick(headSettled);
-  const tls = pick(tlsSettled);
+  const dns = settledBundlePart(dnsSettled);
+  const head = settledBundlePart(headSettled);
+  const tls = settledBundlePart(tlsSettled);
 
   if (!dns.ok && !head.ok && !tls.ok) {
     throw new Error(
-      `bundle_all_failed: dns=${dns.ok ? "ok" : dns.error}; head=${head.ok ? "ok" : head.error}; tls=${tls.ok ? "ok" : tls.error}`,
+      "bundle_all_failed",
     );
   }
 
@@ -347,18 +349,13 @@ export const bundleOutboundHandler: VendingHandler = async (req, query) => {
     httpHeadHandler(req, { url }),
   ]);
 
-  const pick = <T,>(r: PromiseSettledResult<T>) =>
-    r.status === "fulfilled"
-      ? { ok: true as const, data: r.value }
-      : { ok: false as const, error: String(r.reason).slice(0, 160) };
-
-  const emailPart = pick(emailSettled);
-  const ipPart = pick(ipSettled);
-  const headPart = pick(headSettled);
+  const emailPart = settledBundlePart(emailSettled);
+  const ipPart = settledBundlePart(ipSettled);
+  const headPart = settledBundlePart(headSettled);
 
   if (!emailPart.ok && !ipPart.ok && !headPart.ok) {
     throw new Error(
-      `bundle_outbound_all_failed: email=${emailPart.ok ? "ok" : emailPart.error}; ip=${ipPart.ok ? "ok" : ipPart.error}; head=${headPart.ok ? "ok" : headPart.error}`,
+      "bundle_outbound_all_failed",
     );
   }
 
@@ -404,16 +401,11 @@ export const domainIntelHandler: VendingHandler = async (_req, query) => {
     whoisLite(host),
     httpHead(url),
   ]);
-  const pick = <T,>(r: PromiseSettledResult<T>) =>
-    r.status === "fulfilled"
-      ? { ok: true as const, data: r.value }
-      : { ok: false as const, error: String(r.reason).slice(0, 160) };
-
   const parts = {
-    dns: pick(dns),
-    tls: pick(tls),
-    whois: pick(whois),
-    http_head: pick(head),
+    dns: settledBundlePart(dns),
+    tls: settledBundlePart(tls),
+    whois: settledBundlePart(whois),
+    http_head: settledBundlePart(head),
   };
   if (!parts.dns.ok && !parts.tls.ok && !parts.whois.ok && !parts.http_head.ok) {
     throw new Error("domain_intel_all_failed");

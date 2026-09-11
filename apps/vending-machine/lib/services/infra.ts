@@ -5,6 +5,12 @@
 
 import * as tls from "node:tls";
 import { lookup as dnsLookup } from "node:dns/promises";
+import {
+  publicRequest,
+  publicUrl,
+  resolvePublicAddress,
+  type PublicResponse,
+} from "@/lib/services/public-network";
 
 const HOST_RE = /^(?=.{1,253}$)(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+\.?$/i;
 
@@ -68,31 +74,6 @@ export function normalizeHost(raw: string): string {
     throw new Error("host_not_allowed");
   }
   return h;
-}
-
-function isPrivateIp(ip: string): boolean {
-  // IPv4
-  const m = ip.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
-  if (m) {
-    const [a, b] = [Number(m[1]), Number(m[2])];
-    if (a === 10) return true;
-    if (a === 127) return true;
-    if (a === 0) return true;
-    if (a === 169 && b === 254) return true;
-    if (a === 172 && b >= 16 && b <= 31) return true;
-    if (a === 192 && b === 168) return true;
-    if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT
-    return false;
-  }
-  // IPv6 simplified
-  const v6 = ip.toLowerCase();
-  if (v6 === "::1") return true;
-  if (v6.startsWith("fc") || v6.startsWith("fd")) return true; // ULA
-  if (v6.startsWith("fe80")) return true; // link-local
-  if (v6.startsWith("::ffff:")) {
-    return isPrivateIp(v6.slice(7));
-  }
-  return false;
 }
 
 /** Cloudflare DNS-over-HTTPS (JSON) — shared low-level helper. */
@@ -204,79 +185,37 @@ export async function resolveDns(host: string): Promise<DnsResult> {
 }
 
 function assertPublicUrl(raw: string): URL {
-  const s = raw.trim();
-  if (!s) throw new Error("missing url");
-  if (s.length > 2048) throw new Error("url_too_long");
-  let u: URL;
-  try {
-    u = new URL(s);
-  } catch {
-    throw new Error("invalid_url");
-  }
-  if (u.protocol !== "http:" && u.protocol !== "https:") {
-    throw new Error("invalid_protocol");
-  }
-  if (u.username || u.password) throw new Error("url_auth_not_allowed");
-  const host = u.hostname.toLowerCase();
-  if (host === "localhost" || host.endsWith(".local") || host.endsWith(".internal")) {
-    throw new Error("host_not_allowed");
-  }
-  if (isPrivateIp(host)) throw new Error("private_ip_not_allowed");
-  return u;
+  return publicUrl(raw);
 }
 
 /** Resolve hostname and reject private A/AAAA (SSRF guard). */
 export async function assertPublicHostResolves(host: string): Promise<void> {
   const h = normalizeHost(host);
-  if (isPrivateIp(h)) throw new Error("private_ip_not_allowed");
-  try {
-    const addrs = await dnsLookup(h, { all: true });
-    const list = Array.isArray(addrs) ? addrs : [addrs];
-    for (const a of list) {
-      if (isPrivateIp(a.address)) throw new Error("resolves_to_private_ip");
-    }
-  } catch (e) {
-    if (String(e).includes("private") || String(e).includes("not_allowed")) throw e;
-    // NXDOMAIN etc. — let HEAD/TLS fail with their own errors
-  }
+  await resolvePublicAddress(h, Date.now() + 7000);
 }
 
-async function singleHeadOrGet(url: string): Promise<Response> {
+async function singleHeadOrGet(url: string, deadline: number): Promise<PublicResponse> {
   try {
-    return await fetch(url, {
-      method: "HEAD",
-      redirect: "manual",
-      signal: AbortSignal.timeout(7000),
-      headers: { "User-Agent": "x402-vending-machine/0.1 (+infra-probe)" },
-    });
+    return await publicRequest(url, "HEAD", 0, deadline);
   } catch {
-    return await fetch(url, {
-      method: "GET",
-      redirect: "manual",
-      signal: AbortSignal.timeout(7000),
-      headers: {
-        "User-Agent": "x402-vending-machine/0.1 (+infra-probe)",
-        Range: "bytes=0-0",
-      },
-    });
+    return publicRequest(url, "GET", 1, deadline, { Range: "bytes=0-0" });
   }
 }
 
 export async function httpHead(urlRaw: string): Promise<HeadResult> {
   const u = assertPublicUrl(urlRaw);
-  await assertPublicHostResolves(u.hostname);
-
   const started = Date.now();
+  const deadline = started + 8000;
   // Follow redirects ourselves so we can SSRF-check each hop
   let current = u.toString();
-  let res: Response | null = null;
+  let res: PublicResponse | null = null;
   for (let hop = 0; hop < 8; hop++) {
     const hopUrl = assertPublicUrl(current);
-    await assertPublicHostResolves(hopUrl.hostname);
-    res = await singleHeadOrGet(hopUrl.toString());
+    res = await singleHeadOrGet(hopUrl.toString(), deadline);
     if (res.status >= 300 && res.status < 400) {
       const loc = res.headers.get("location");
       if (!loc) break;
+      if (hop === 7) throw new Error("upstream_redirect_limit");
       current = new URL(loc, hopUrl).toString();
       continue;
     }
@@ -284,19 +223,13 @@ export async function httpHead(urlRaw: string): Promise<HeadResult> {
   }
   if (!res) throw new Error("head_failed");
 
-  const finalUrl = res.url && res.url !== "" ? res.url : current;
-  try {
-    const final = new URL(finalUrl);
-    if (isPrivateIp(final.hostname)) throw new Error("redirect_private_ip");
-  } catch (e) {
-    if (String(e).includes("private")) throw e;
-  }
+  const finalUrl = current;
 
   return {
     url: u.toString(),
     final_url: finalUrl,
     status: res.status,
-    ok: res.ok,
+    ok: res.status >= 200 && res.status < 300,
     ms: Date.now() - started,
     headers: {
       "content-type": res.headers.get("content-type"),
@@ -326,19 +259,18 @@ export type RedirectTraceResult = {
 /** Follow redirects manually (max 10 hops), SSRF-safe, real statuses only. */
 export async function redirectTrace(urlRaw: string, maxHops = 10): Promise<RedirectTraceResult> {
   const start = assertPublicUrl(urlRaw);
-  await assertPublicHostResolves(start.hostname);
   const hops: RedirectHop[] = [];
   const t0 = Date.now();
+  const deadline = t0 + 12_000;
   let current = start.toString();
   let finalStatus = 0;
 
   for (let i = 0; i < maxHops; i++) {
     const hopUrl = assertPublicUrl(current);
-    await assertPublicHostResolves(hopUrl.hostname);
     const hopStart = Date.now();
-    let res: Response;
+    let res: PublicResponse;
     try {
-      res = await singleHeadOrGet(hopUrl.toString());
+      res = await singleHeadOrGet(hopUrl.toString(), deadline);
     } catch (e) {
       throw new Error(`redirect_hop_failed: ${String(e).slice(0, 120)}`);
     }
@@ -457,23 +389,49 @@ function dnToObject(dn: string | undefined | null): Record<string, string> | nul
   return Object.keys(out).length ? out : { cn: dn };
 }
 
-export async function tlsCertPeek(hostRaw: string, portRaw?: string | number): Promise<TlsResult> {
+export async function tlsCertPeek(
+  hostRaw: string,
+  portRaw?: string | number,
+  options: {
+    timeoutMs?: number;
+    resolveAddress?: typeof resolvePublicAddress;
+    allowedPorts?: readonly number[];
+  } = {},
+): Promise<TlsResult> {
   const host = normalizeHost(hostRaw);
-  await assertPublicHostResolves(host);
   const port = Number(portRaw ?? 443) || 443;
-  if (!Number.isInteger(port) || (port !== 443 && port !== 8443)) {
+  const allowedPorts = options.allowedPorts ?? [443, 8443];
+  if (!Number.isInteger(port) || !allowedPorts.includes(port)) {
     throw new Error("port_not_allowed");
   }
 
   const started = Date.now();
+  const deadline = started + (options.timeoutMs ?? 7000);
+  const target = await (options.resolveAddress ?? resolvePublicAddress)(host, deadline);
   return new Promise<TlsResult>((resolve, reject) => {
+    let settled = false;
+    let absoluteTimer: NodeJS.Timeout | undefined;
+    const fail = (error: Error) => {
+      if (settled) return;
+      settled = true;
+      if (absoluteTimer) clearTimeout(absoluteTimer);
+      socket.destroy();
+      reject(error);
+    };
+    const succeed = (result: TlsResult) => {
+      if (settled) return;
+      settled = true;
+      if (absoluteTimer) clearTimeout(absoluteTimer);
+      socket.destroy();
+      resolve(result);
+    };
     const socket = tls.connect(
       {
-        host,
+        host: target.address,
         port,
         servername: host,
         rejectUnauthorized: false, // we report auth status ourselves
-        timeout: 7000,
+        timeout: Math.max(1, deadline - Date.now()),
       },
       () => {
         try {
@@ -524,22 +482,22 @@ export async function tlsCertPeek(hostRaw: string, portRaw?: string | number): P
             fingerprint256: cert?.fingerprint256 ?? null,
             ms: Date.now() - started,
           };
-          socket.end();
-          resolve(result);
+          succeed(result);
         } catch (e) {
-          socket.destroy();
-          reject(new Error(`tls_parse_failed: ${String(e).slice(0, 100)}`));
+          fail(new Error(`tls_parse_failed: ${String(e).slice(0, 100)}`));
         }
       },
     );
 
     socket.on("error", (err) => {
-      socket.destroy();
-      reject(new Error(`tls_failed: ${String(err.message).slice(0, 140)}`));
+      fail(new Error(`tls_failed: ${String(err.message).slice(0, 140)}`));
     });
-    socket.setTimeout(7000, () => {
-      socket.destroy();
-      reject(new Error("tls_timeout"));
+    absoluteTimer = setTimeout(
+      () => fail(new Error("tls_timeout")),
+      Math.max(1, deadline - Date.now()),
+    );
+    socket.setTimeout(Math.max(1, deadline - Date.now()), () => {
+      fail(new Error("tls_timeout"));
     });
   });
 }

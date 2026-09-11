@@ -59,6 +59,24 @@ export function clientIpFromHeaders(headers: Headers): string {
   return headers.get("x-real-ip")?.trim() || headers.get("cf-connecting-ip")?.trim() || "unknown";
 }
 
+export function paymentHeaderFromHeaders(headers: Headers): string | null {
+  return headers.get("payment-signature") ?? headers.get("x-payment");
+}
+
+/** Apply the baseline before inspecting payment state, then the unpaid slug limit. */
+export function checkVendingRequestRateLimit(
+  headers: Headers,
+  slug: string,
+): { paymentHeader: string | null; rateLimit: RateLimitResult } {
+  const ip = clientIpFromHeaders(headers);
+  const baseline = checkRateLimit(`requests:${ip}`, 120, 60_000);
+  const paymentHeader = paymentHeaderFromHeaders(headers);
+  const rateLimit = baseline.allowed && !paymentHeader
+    ? checkRateLimit(`unpaid:${ip}:${slug}`)
+    : baseline;
+  return { paymentHeader, rateLimit };
+}
+
 /** Test helper — clear buckets between unit runs. */
 export function _resetRateLimitForTests() {
   buckets.clear();

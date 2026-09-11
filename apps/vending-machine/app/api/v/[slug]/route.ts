@@ -8,7 +8,10 @@ import {
   payerHintFromPaymentHeader,
   userAgentHint,
 } from "@/lib/analytics";
-import { checkRateLimit, clientIpFromHeaders } from "@/lib/rate-limit";
+import {
+  checkVendingRequestRateLimit,
+  paymentHeaderFromHeaders,
+} from "@/lib/rate-limit";
 
 /** Kronos + multi-leg bundles need headroom; Pro default allows up to 60s. */
 export const maxDuration = 60;
@@ -17,15 +20,6 @@ export const runtime = "nodejs";
 type Wrapped = (request: NextRequest) => Promise<NextResponse>;
 
 const wrappedHandlers: Record<string, Wrapped> = {};
-
-function paymentHeader(request: NextRequest): string | null {
-  return (
-    request.headers.get("payment-signature") ??
-    request.headers.get("PAYMENT-SIGNATURE") ??
-    request.headers.get("x-payment") ??
-    request.headers.get("X-PAYMENT")
-  );
-}
 
 async function ensureWrapped(slug: string): Promise<Wrapped | null> {
   const svc = SERVICES_BY_SLUG[slug];
@@ -55,11 +49,11 @@ async function ensureWrapped(slug: string): Promise<Wrapped | null> {
         slug,
         ms: Date.now() - started,
         status: 400,
-        error: String(e).slice(0, 200),
+        error: "service_request_failed",
       });
       // status >= 400 → withX402 skips settle (idempotent: no charge on bad input)
       return NextResponse.json(
-        { service: slug, ok: false, error: String(e) },
+        { service: slug, ok: false, error: "service_request_failed" },
         { status: 400 },
       );
     }
@@ -79,7 +73,7 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
   const started = Date.now();
   const { slug } = await ctx.params;
   const ua = userAgentHint(request.headers.get("user-agent"));
-  const payHdr = paymentHeader(request);
+  const payHdr = paymentHeaderFromHeaders(request.headers);
   const hasPayment = Boolean(payHdr);
   const payerHint = payerHintFromPaymentHeader(payHdr);
 
@@ -87,11 +81,9 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
     return NextResponse.json({ error: "unknown_service", slug }, { status: 404 });
   }
 
-  // Phase 0.5 — throttle unpaid 402 spam (per IP + slug, per isolate)
-  if (!hasPayment) {
-    const ip = clientIpFromHeaders(request.headers);
-    const rl = checkRateLimit(`unpaid:${ip}:${slug}`);
-    if (!rl.allowed) {
+  const { rateLimit: rl } = checkVendingRequestRateLimit(request.headers, slug);
+  // The shared helper applies the baseline before inspecting payment state.
+  if (!rl.allowed) {
       await logCall({
         event: "rate_limited",
         slug,
@@ -109,8 +101,8 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
           },
         },
       );
-    }
-  } else {
+  }
+  if (hasPayment) {
     await logCall({
       event: "payment_present",
       slug,
@@ -119,12 +111,11 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
     });
   }
 
-  const handler = await ensureWrapped(slug);
-  if (!handler) {
-    return NextResponse.json({ error: "unknown_service", slug }, { status: 404 });
-  }
-
   try {
+    const handler = await ensureWrapped(slug);
+    if (!handler) {
+      return NextResponse.json({ error: "unknown_service", slug }, { status: 404 });
+    }
     const res = await handler(request);
     const ms = Date.now() - started;
 
@@ -175,7 +166,7 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
       ms: Date.now() - started,
       userAgentHint: ua,
       payerHint,
-      error: String(e).slice(0, 200),
+      error: "payment_pipeline_failed",
     });
     return NextResponse.json(
       { error: "facilitator_or_server_error", message: "payment pipeline failed" },
