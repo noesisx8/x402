@@ -8,4 +8,4 @@ healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
 # Shell wrapper required: Dockerfile/Image services run startCommand in exec form
 # (no env expansion). Without sh -c, uvicorn gets the literal string "$PORT".
-startCommand = "sh -c 'exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}'"
+startCommand = "sh -c 'exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080} --http h11 --limit-concurrency ${UVICORN_LIMIT_CONCURRENCY:-16}'"

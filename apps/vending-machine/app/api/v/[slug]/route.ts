@@ -8,7 +8,12 @@ import {
   payerHintFromPaymentHeader,
   userAgentHint,
 } from "@/lib/analytics";
-import { checkRateLimit, clientIpFromHeaders } from "@/lib/rate-limit";
+import { clientIpFromHeaders } from "@/lib/rate-limit";
+import {
+  createPaymentGate,
+  publicErrorMessage,
+  upstashPaymentLockFromEnv,
+} from "@x402-project/request-guard";
 
 /** Kronos + multi-leg bundles need headroom; Pro default allows up to 60s. */
 export const maxDuration = 60;
@@ -18,13 +23,20 @@ type Wrapped = (request: NextRequest) => Promise<NextResponse>;
 
 const wrappedHandlers: Record<string, Wrapped> = {};
 
+/**
+ * One gate per isolate. Redis (Vercel KV / Upstash) covers other isolates when configured.
+ * A missing lock client keeps the in-memory ledger and does not fail the request.
+ */
+const payments = createPaymentGate({ remote: upstashPaymentLockFromEnv() });
+
 function paymentHeader(request: NextRequest): string | null {
-  return (
+  const raw =
     request.headers.get("payment-signature") ??
     request.headers.get("PAYMENT-SIGNATURE") ??
     request.headers.get("x-payment") ??
-    request.headers.get("X-PAYMENT")
-  );
+    request.headers.get("X-PAYMENT");
+  const trimmed = raw?.trim();
+  return trimmed ? trimmed : null;
 }
 
 async function ensureWrapped(slug: string): Promise<Wrapped | null> {
@@ -50,18 +62,16 @@ async function ensureWrapped(slug: string): Promise<Wrapped | null> {
       });
       return NextResponse.json({ service: slug, ok: true, ...body });
     } catch (e) {
+      const error = publicErrorMessage(e);
       await logCall({
         event: "handler_fail",
         slug,
         ms: Date.now() - started,
         status: 400,
-        error: String(e).slice(0, 200),
+        error,
       });
       // status >= 400 → withX402 skips settle (idempotent: no charge on bad input)
-      return NextResponse.json(
-        { service: slug, ok: false, error: String(e) },
-        { status: 400 },
-      );
+      return NextResponse.json({ service: slug, ok: false, error }, { status: 400 });
     }
   };
 
@@ -72,25 +82,25 @@ async function ensureWrapped(slug: string): Promise<Wrapped | null> {
 /**
  * Dynamic vending route: x402 flow is 402 → pay → retry → verify/settle → 200.
  * Settlement runs only after handler returns status < 400 (withX402 guarantee).
- *
- * Phase 0: rate-limit unpaid probes, structured lifecycle logs, price cap via registry.
+ * A signed envelope is admitted once per isolate (and via Redis when configured)
+ * before the facilitator client is constructed.
  */
 export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: string }> }) {
   const started = Date.now();
   const { slug } = await ctx.params;
   const ua = userAgentHint(request.headers.get("user-agent"));
   const payHdr = paymentHeader(request);
-  const hasPayment = Boolean(payHdr);
-  const payerHint = payerHintFromPaymentHeader(payHdr);
+  const ip = clientIpFromHeaders(request.headers);
 
   if (!SERVICES_BY_SLUG[slug]) {
     return NextResponse.json({ error: "unknown_service", slug }, { status: 404 });
   }
 
-  // Phase 0.5 — throttle unpaid 402 spam (per IP + slug, per isolate)
-  if (!hasPayment) {
-    const ip = clientIpFromHeaders(request.headers);
-    const rl = checkRateLimit(`unpaid:${ip}:${slug}`);
+  let finish: ((status: number) => Promise<void>) | null = null;
+  let payerHint: string | undefined;
+
+  if (!payHdr) {
+    const rl = payments.takeUnpaid(ip, slug);
     if (!rl.allowed) {
       await logCall({
         event: "rate_limited",
@@ -111,6 +121,31 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
       );
     }
   } else {
+    const decision = await payments.begin(payHdr, ip);
+    if (!decision.ok) {
+      await logCall({
+        event: decision.status === 429 ? "rate_limited" : "error",
+        slug,
+        status: decision.status,
+        ms: Date.now() - started,
+        userAgentHint: ua,
+        error: decision.error,
+      });
+      return NextResponse.json(
+        {
+          error: decision.error,
+          ...(decision.retryAfterSec ? { retry_after_sec: decision.retryAfterSec } : {}),
+        },
+        {
+          status: decision.status,
+          headers: decision.retryAfterSec
+            ? { "Retry-After": String(decision.retryAfterSec) }
+            : undefined,
+        },
+      );
+    }
+    finish = decision.finish;
+    payerHint = payerHintFromPaymentHeader(payHdr);
     await logCall({
       event: "payment_present",
       slug,
@@ -121,11 +156,13 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
 
   const handler = await ensureWrapped(slug);
   if (!handler) {
+    if (finish) await finish(404);
     return NextResponse.json({ error: "unknown_service", slug }, { status: 404 });
   }
 
   try {
     const res = await handler(request);
+    if (finish) await finish(res.status);
     const ms = Date.now() - started;
 
     if (res.status === 402) {
@@ -145,8 +182,7 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
         userAgentHint: ua,
         payerHint,
       });
-      // Settlement is performed inside withX402 after handler success
-      if (hasPayment) {
+      if (payHdr) {
         await logCall({
           event: "settlement_response",
           slug,
@@ -168,6 +204,7 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
 
     return res;
   } catch (e) {
+    if (finish) await finish(500);
     await logCall({
       event: "error",
       slug,
@@ -175,7 +212,7 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
       ms: Date.now() - started,
       userAgentHint: ua,
       payerHint,
-      error: String(e).slice(0, 200),
+      error: publicErrorMessage(e),
     });
     return NextResponse.json(
       { error: "facilitator_or_server_error", message: "payment pipeline failed" },

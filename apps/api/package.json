@@ -7,14 +7,16 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "check": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p ../../packages/request-guard/tsconfig.json --typeRoots ./node_modules/@types && tsc -p tsconfig.json",
+    "check": "npm run build",
+    "test:security": "npm run build && node --test scripts/openvuln.test.mjs",
     "start:deploy": "node dist/index.js",
     "dev:deploy-host-only": "node --watch dist/index.js"
   },
   "dependencies": {
     "@x402/core": "^2.17.0",
     "@x402/evm": "^2.17.0",
+    "@x402-project/request-guard": "file:../../packages/request-guard",
     "@x402/express": "^2.17.0",
     "express": "^4.21.2",
     "zod": "^3.24.2"

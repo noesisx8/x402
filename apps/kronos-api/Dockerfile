@@ -35,4 +35,4 @@ ENV PORT=8080
 
 # Shell form so $PORT expands (Railway Image/Dockerfile often uses exec form
 # for overridden startCommand — keep the same pattern in railway.toml).
-CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}"]
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080} --http h11 --limit-concurrency ${UVICORN_LIMIT_CONCURRENCY:-16}"]

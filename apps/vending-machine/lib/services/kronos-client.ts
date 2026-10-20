@@ -62,13 +62,12 @@ export async function callKronosForecast(
       }),
       signal: AbortSignal.timeout(CLIENT_TIMEOUT_MS),
     });
-  } catch (e) {
-    throw new Error(`kronos_upstream_unreachable: ${String(e).slice(0, 160)}`);
+  } catch {
+    throw new Error("kronos_upstream_unreachable");
   }
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`kronos_upstream_${res.status}: ${text.slice(0, 160)}`);
+    throw new Error(`kronos_upstream_${res.status}`);
   }
 
   const body = (await res.json()) as Record<string, unknown>;

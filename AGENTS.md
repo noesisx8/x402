@@ -60,9 +60,13 @@ npm run smoke:unpaid   # live 402 + discovery against production (no wallet)
 npm run smoke:paid     # PAID mainnet E2E — portalv2 only, needs X402_PRIVATE_KEY=0x…
 
 # apps/api (Railway / portalv2)
-npm run build          # tsc -p tsconfig.json → dist/
-npm run check          # tsc --noEmit
+npm run build          # compiles packages/request-guard, then tsc → dist/
+npm run check          # same as build
+npm run test:security  # HEAD paywall, payment gate, SSRF fixtures (no facilitator, no network dial)
 npm run start:deploy   # node dist/index.js (deploy hosts only)
+
+# apps/kronos-api
+python3 -m unittest tests/test_ingress.py   # body cap + bearer-before-app; does not import app.main
 ```
 
 Optional Docker for the vending machine: `docker build -t x402-vending .` in `apps/vending-machine`.
@@ -70,9 +74,9 @@ Optional Docker for the vending machine: `docker build -t x402-vending .` in `ap
 ## Code organization & conventions (vending-machine)
 
 - **Add a paid service**: implement a handler in `lib/services/handlers.ts`, then append one entry (`slug`, `price` like `"$0.003"`, `description`, `queryParams`, `handler`) to `VENDING_SERVICES` in `lib/services/registry.ts`. The route `GET /api/v/{slug}` goes live automatically; discovery (`/.well-known/agent-services.json`, `/api/openapi.json`) derives from the registry.
-- **x402 flow** (`app/api/v/[slug]/route.ts`): handlers are wrapped with `withX402` from `@x402/next`; the shared facilitator-backed resource server is a per-isolate singleton (`lib/x402/resource-server.ts`). Settlement runs **only when the handler returns status < 400** — handlers signal bad input by returning 400, which cancels settlement (no charge on bad input).
+- **x402 flow** (`app/api/v/[slug]/route.ts`): handlers are wrapped with `withX402` from `@x402/next`; the shared facilitator-backed resource server is a per-isolate singleton (`lib/x402/resource-server.ts`). A payment fingerprint is admitted by `packages/request-guard` before that server is used. Settlement runs **only when the handler returns status < 400** — handlers signal bad input by returning 400, which cancels settlement (no charge on bad input). A 400 still consumes one of the fingerprint's uses.
 - **Prices are display strings** (`"$0.003"`) parsed by `lib/pricing.ts`; every registry price is validated against `GLOBAL_MAX_PRICE_USD` (default **$0.05**, env `X402_MAX_PRICE_USD`) at module load — misconfigured routes fail closed at boot. Recommended floor: $0.002.
-- **Env validation** is zod-based at startup: `lib/env.ts` (vending-machine, with a placeholder pay-to so `next build` works without secrets) and inline in `apps/api/src/index.ts`.
+- **Env validation** is zod-based at startup: `lib/env.ts` (vending-machine, with a placeholder pay-to so `next build` works without secrets) and `apps/api/src/server.ts` (`index.ts` only listens).
 - **Networks** are CAIP-2: `base` → `eip155:8453`, `base-sepolia` → `eip155:84532`.
 - Path alias `@/` → `apps/vending-machine/` root. TypeScript strict mode; match the existing style (small focused modules, doc comments on exported behavior, no new abstractions for one-off logic).
 - CDP facilitator auth is only attached when the facilitator URL is the CDP host and both CDP keys are present (`lib/x402/cdp-auth.ts`, `shouldUseCdpFacilitatorAuth`).
@@ -90,11 +94,13 @@ Always run `npm run check` (tsc) and `npm run test:unit` after changes. Run `npm
 ## Security considerations (every change — see docs/SECURITY.md)
 
 - Request binding: `Payment-Required.resource.url` includes the full request URL (path + query); payments are not portable across routes.
-- Settlement only after successful handler (< 400); facilitator rejects reused authorizations (exact-scheme idempotency).
-- Unpaid 402 spam is rate-limited per IP+slug (in-memory per serverless isolate; 30 req/60s default, `X402_UNPAID_RATE_LIMIT` / `X402_UNPAID_RATE_WINDOW_MS`).
+- Settlement only after a successful handler (< 400). The facilitator is not treated as a lock: `packages/request-guard` single-flights `from:nonce`, caps uses (default 3), and rejects a malformed envelope before verify. The ledger is in-memory per isolate. Redis (`KV_REST_API_*` or `UPSTASH_REDIS_REST_*`) covers other isolates when set. If Redis is unset or errors, same-isolate protection remains and cross-isolate replay is still possible (`payment_lock_unavailable`). See `docs/SECURITY.md`.
+- Unpaid 402 spam is rate-limited per IP+slug (30 req/60s default, `X402_UNPAID_RATE_LIMIT` / `X402_UNPAID_RATE_WINDOW_MS`). Paid requests are limited per IP (20/60s) and per payer (30/60s), and a payer who fails repeatedly is cut off (`X402_PAYER_FAIL_LIMIT`).
+- Customer-URL fetches pin DNS answers, re-check every redirect, allow ports 80/443/8443, and fail closed. `apps/api` route keys are method-wildcards so HEAD is paid. Client errors are stable codes (`host_not_allowed`, `base_rpc_failed`, `upstream_failed`) and do not include upstream URLs.
 - Per-route price cap ($0.05 default) fails closed at boot.
-- Analytics (`lib/analytics.ts`) logs lifecycle events (`402_issued`, `payment_present`, `handler_ok/fail`, `200_delivered`, `settlement_response`, `rate_limited`, `error`) — in-memory ring buffer, truncated payer hints, **never** secrets or full payment payloads. `GET /api/admin/stats` full payload requires `Authorization: Bearer $ANALYTICS_TOKEN`.
+- Analytics (`lib/analytics.ts`) logs lifecycle events (`402_issued`, `payment_present`, `handler_ok/fail`, `200_delivered`, `settlement_response`, `rate_limited`, `error`) — in-memory ring buffer, truncated payer hints, **never** secrets, Redis tokens, or full payment payloads. `GET /api/admin/stats` full payload requires `Authorization: Bearer $ANALYTICS_TOKEN`.
 - No private keys in the repo — CDP secrets and payer keys live only in host env / Vercel / Railway variables.
+- `apps/api` `HOST` defaults to `0.0.0.0` (Railway). portalv2 sets `HOST=127.0.0.1`. Kronos stays on `0.0.0.0` and caps body size plus uvicorn concurrency.
 
 ## Deployment
 

@@ -5,42 +5,12 @@
 
 import { createPublicClient, formatEther, formatUnits, http, isAddress, type Address } from "viem";
 import { base } from "viem/chains";
-import {
-  assertPublicHostResolves,
-  normalizeHost,
-} from "@/lib/services/infra";
+import { normalizeHost } from "@/lib/services/infra";
+import { assertPublicUrl, publicHttp } from "@x402-project/request-guard";
 
-// Re-export assertPublicUrl via duplicate check — import from infra if exported
-// infra has assertPublicUrl private; we validate here.
-
-const PRIVATE_HOST = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|\[::1\])/i;
-
+/** Same public-URL rules as the shared guard (port allowlist, private ranges, suffixes). */
 export function assertPublicHttpUrl(raw: string): URL {
-  const s = raw.trim();
-  if (!s || s.length > 2048) throw new Error("invalid_url");
-  let u: URL;
-  try {
-    u = new URL(s);
-  } catch {
-    throw new Error("invalid_url");
-  }
-  if (u.protocol !== "http:" && u.protocol !== "https:") throw new Error("invalid_protocol");
-  if (u.username || u.password) throw new Error("url_auth_not_allowed");
-  const host = u.hostname.toLowerCase();
-  if (host === "localhost" || host.endsWith(".local") || host.endsWith(".internal")) {
-    throw new Error("host_not_allowed");
-  }
-  if (PRIVATE_HOST.test(host) || /^\d+\.\d+\.\d+\.\d+$/.test(host)) {
-    // allow public IPs only via resolve check below for hostnames
-    const parts = host.split(".").map(Number);
-    if (parts.length === 4 && parts.every((n) => n >= 0 && n <= 255)) {
-      const [a, b] = parts;
-      if (a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)) {
-        throw new Error("private_ip_not_allowed");
-      }
-    }
-  }
-  return u;
+  return assertPublicUrl(raw);
 }
 
 /** Strip tags / collapse whitespace for agent-readable text. */
@@ -77,28 +47,18 @@ export type HttpGetResult = {
 const MAX_BODY = 48_000; // ~48KB agent-friendly cap
 
 export async function safeHttpGet(urlRaw: string, maxBytes = MAX_BODY): Promise<HttpGetResult> {
-  const u = assertPublicHttpUrl(urlRaw);
-  await assertPublicHostResolves(u.hostname);
-  const started = Date.now();
-  const res = await fetch(u.toString(), {
-    method: "GET",
-    redirect: "follow",
-    signal: AbortSignal.timeout(8000),
+  const result = await publicHttp(urlRaw, "GET", {
+    maxHops: 5,
+    maxBytes,
+    timeoutMs: 8_000,
     headers: {
       "User-Agent": "x402-vending-machine/0.2 (+agent-fetch)",
       Accept: "text/html,application/json,text/plain,*/*",
     },
   });
-  const final = new URL(res.url);
-  await assertPublicHostResolves(final.hostname).catch(() => {
-    throw new Error("redirect_private_or_bad_host");
-  });
-
-  const buf = new Uint8Array(await res.arrayBuffer());
-  const truncated = buf.byteLength > maxBytes;
-  const slice = truncated ? buf.slice(0, maxBytes) : buf;
-  const ct = res.headers.get("content-type") ?? "";
-  const text = new TextDecoder("utf-8", { fatal: false }).decode(slice);
+  const truncated = result.truncated;
+  const ct = result.headers.get("content-type") ?? "";
+  const text = new TextDecoder("utf-8", { fatal: false }).decode(result.body);
 
   let body_json: unknown | null = null;
   let body_text: string | null = text;
@@ -112,13 +72,13 @@ export async function safeHttpGet(urlRaw: string, maxBytes = MAX_BODY): Promise<
   }
 
   return {
-    url: u.toString(),
-    final_url: res.url,
-    status: res.status,
-    ok: res.ok,
-    ms: Date.now() - started,
+    url: result.url,
+    final_url: result.finalUrl,
+    status: result.status,
+    ok: result.status >= 200 && result.status < 300,
+    ms: result.ms,
     content_type: ct || null,
-    bytes: buf.byteLength,
+    bytes: result.body.byteLength,
     truncated,
     body_text,
     body_json,
@@ -192,16 +152,23 @@ export async function baseWalletSnapshot(addressRaw: string): Promise<{
   if (!isAddress(address)) throw new Error("invalid_address");
   const started = Date.now();
   const client = baseClient();
-  const [ethWei, usdcRaw, block] = await Promise.all([
-    client.getBalance({ address: address as Address }),
-    client.readContract({
-      address: USDC_BASE,
-      abi: ERC20_ABI,
-      functionName: "balanceOf",
-      args: [address as Address],
-    }),
-    client.getBlockNumber(),
-  ]);
+  let ethWei: bigint;
+  let usdcRaw: bigint;
+  let block: bigint;
+  try {
+    [ethWei, usdcRaw, block] = await Promise.all([
+      client.getBalance({ address: address as Address }),
+      client.readContract({
+        address: USDC_BASE,
+        abi: ERC20_ABI,
+        functionName: "balanceOf",
+        args: [address as Address],
+      }),
+      client.getBlockNumber(),
+    ]);
+  } catch {
+    throw new Error("base_rpc_failed");
+  }
   return {
     address,
     chain: "base",

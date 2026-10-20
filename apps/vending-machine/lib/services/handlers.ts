@@ -1,4 +1,5 @@
 import type { VendingHandler } from "@/lib/services/types";
+import { publicErrorMessage } from "@x402-project/request-guard";
 import {
   baseWalletSnapshot,
   fetchPageText,
@@ -63,8 +64,8 @@ export const emailValidateHandler: VendingHandler = async (_req, query) => {
   let mxResult: Awaited<ReturnType<typeof resolveMx>>;
   try {
     mxResult = await resolveMx(domain);
-  } catch (e) {
-    throw new Error(`mx_lookup_failed: ${String(e).slice(0, 120)}`);
+  } catch {
+    throw new Error("mx_lookup_failed");
   }
 
   return {
@@ -237,7 +238,7 @@ export const bundleInfraHandler: VendingHandler = async (_req, query) => {
   const pick = <T,>(r: PromiseSettledResult<T>) =>
     r.status === "fulfilled"
       ? { ok: true as const, data: r.value }
-      : { ok: false as const, error: String(r.reason).slice(0, 160) };
+      : { ok: false as const, error: publicErrorMessage(r.reason) };
 
   const dns = pick(dnsSettled);
   const head = pick(headSettled);
@@ -350,7 +351,7 @@ export const bundleOutboundHandler: VendingHandler = async (req, query) => {
   const pick = <T,>(r: PromiseSettledResult<T>) =>
     r.status === "fulfilled"
       ? { ok: true as const, data: r.value }
-      : { ok: false as const, error: String(r.reason).slice(0, 160) };
+      : { ok: false as const, error: publicErrorMessage(r.reason) };
 
   const emailPart = pick(emailSettled);
   const ipPart = pick(ipSettled);
@@ -407,7 +408,7 @@ export const domainIntelHandler: VendingHandler = async (_req, query) => {
   const pick = <T,>(r: PromiseSettledResult<T>) =>
     r.status === "fulfilled"
       ? { ok: true as const, data: r.value }
-      : { ok: false as const, error: String(r.reason).slice(0, 160) };
+      : { ok: false as const, error: publicErrorMessage(r.reason) };
 
   const parts = {
     dns: pick(dns),

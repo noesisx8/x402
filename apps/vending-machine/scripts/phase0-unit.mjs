@@ -7,7 +7,10 @@
 import assert from "node:assert/strict";
 
 // Inline mirrors of pure logic so this script runs without TS build.
-// Source of truth remains lib/pricing.ts and lib/rate-limit.ts — keep in sync.
+// Pricing source of truth: lib/pricing.ts.
+// Rate-limit arithmetic source of truth: packages/request-guard/src/rate-limit.ts
+// (`createRateLimiter().take`). lib/rate-limit.ts re-exports it. Keep the count
+// arithmetic in sync. The production limiter also prunes after 2000 keys.
 
 const PRICE_RE = /^\$?(\d+(?:\.\d+)?)$/;
 const GLOBAL_MAX = 0.05;

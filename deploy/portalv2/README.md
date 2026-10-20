@@ -34,8 +34,10 @@ EnvironmentFile=/etc/x402-api.env
 ExecStart=/usr/bin/node dist/index.js
 Restart=on-failure
 RestartSec=5
-# Bind only on portalv2 — expose via Tailscale Serve if needed
+# Bind the loopback interface on portalv2 and expose it with Tailscale Serve.
+# Railway does not use this unit; its default HOST is 0.0.0.0.
 Environment=PORT=18080
+Environment=HOST=127.0.0.1
 
 [Install]
 WantedBy=multi-user.target
