@@ -9,7 +9,7 @@ from fastapi import Depends, FastAPI, HTTPException
 
 from app.auth import require_bearer
 from app.forecast import load_model, model_status, run_forecast
-from app.ingress import IngressMiddleware
+from app.ingress import IngressMiddleware, max_body_bytes
 from app.ohlcv import fetch_ohlcv
 from app.schemas import ForecastRequest, ForecastResponse, HealthResponse
 
@@ -55,7 +55,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 # Outermost: cap the body and require a bearer before FastAPI parses JSON.
-app.add_middleware(IngressMiddleware)
+app.add_middleware(IngressMiddleware, max_body=max_body_bytes())
 
 
 @app.get("/health", response_model=HealthResponse)
