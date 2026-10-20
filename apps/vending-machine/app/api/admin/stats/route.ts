@@ -3,7 +3,15 @@ import { getAnalyticsSummary, getRecentAnalytics } from "@/lib/analytics";
 import { VENDING_SERVICES } from "@/lib/services/registry";
 import { serverEnv, CAIP_NETWORK } from "@/lib/env";
 import { GLOBAL_MAX_PRICE_USD } from "@/lib/pricing";
-import { UNPAID_LIMIT, UNPAID_WINDOW_MS } from "@/lib/rate-limit";
+import {
+  PAID_IP_LIMIT,
+  PAID_PAYER_LIMIT,
+  PAID_WINDOW_MS,
+  PAYER_FAIL_LIMIT,
+  PAYMENT_MAX_USES,
+  UNPAID_LIMIT,
+  UNPAID_WINDOW_MS,
+} from "@/lib/rate-limit";
 
 function authorized(request: NextRequest): boolean {
   const token = serverEnv.ANALYTICS_TOKEN?.trim();
@@ -24,6 +32,11 @@ export async function GET(request: NextRequest) {
       max_price_usd: GLOBAL_MAX_PRICE_USD,
       unpaid_rate_limit: UNPAID_LIMIT,
       unpaid_window_ms: UNPAID_WINDOW_MS,
+      paid_ip_rate_limit: PAID_IP_LIMIT,
+      paid_payer_rate_limit: PAID_PAYER_LIMIT,
+      paid_window_ms: PAID_WINDOW_MS,
+      payment_max_uses: PAYMENT_MAX_USES,
+      payer_fail_limit: PAYER_FAIL_LIMIT,
     },
   };
 

@@ -16,7 +16,7 @@ git clone --depth 1 https://github.com/shiyu-coder/Kronos.git /path/to/Kronos
 set KRONOS_REPO_PATH=C:\path\to\Kronos
 set KRONOS_API_SECRET=dev-secret
 set KRONOS_DEVICE=cpu
-uvicorn app.main:app --host 127.0.0.1 --port 8080
+uvicorn app.main:app --host 127.0.0.1 --port 8080 --http h11 --limit-concurrency 16
 ```
 
 Health: `GET http://127.0.0.1:8080/health`  
@@ -41,4 +41,6 @@ curl -s -X POST http://127.0.0.1:8080/v1/forecast \
 
 - Never leave this service open without Bearer auth.
 - Do not put `KRONOS_API_SECRET` in the repo.
+- Request bodies are capped (64 KiB, `KRONOS_MAX_BODY_BYTES`) before JSON parsing and before the bearer check. Oversized bodies return 413.
+- Uvicorn runs on h11 with `--limit-concurrency` (default 16, `UVICORN_LIMIT_CONCURRENCY`). Bind stays `0.0.0.0` on Railway.
 - Vending handler fails closed (400, no settle) if this API is down.

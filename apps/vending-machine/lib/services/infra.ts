@@ -5,6 +5,14 @@
 
 import * as tls from "node:tls";
 import { lookup as dnsLookup } from "node:dns/promises";
+import { isIP } from "node:net";
+import {
+  assertPublicAnswers,
+  assertPublicUrl,
+  isPublicIp,
+  publicHttp,
+  resolvePublicAddress,
+} from "@x402-project/request-guard";
 
 const HOST_RE = /^(?=.{1,253}$)(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+\.?$/i;
 
@@ -64,35 +72,11 @@ export function normalizeHost(raw: string): string {
   }
   h = h.replace(/\.$/, "");
   if (h.length > 253 || !HOST_RE.test(h)) throw new Error("invalid_host");
-  if (h === "localhost" || h.endsWith(".local") || h.endsWith(".internal")) {
+  if (h === "localhost" || h.endsWith(".localhost") || h.endsWith(".local") || h.endsWith(".internal")) {
     throw new Error("host_not_allowed");
   }
+  if (isIP(h) && !isPublicIp(h)) throw new Error("private_ip_not_allowed");
   return h;
-}
-
-function isPrivateIp(ip: string): boolean {
-  // IPv4
-  const m = ip.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
-  if (m) {
-    const [a, b] = [Number(m[1]), Number(m[2])];
-    if (a === 10) return true;
-    if (a === 127) return true;
-    if (a === 0) return true;
-    if (a === 169 && b === 254) return true;
-    if (a === 172 && b >= 16 && b <= 31) return true;
-    if (a === 192 && b === 168) return true;
-    if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT
-    return false;
-  }
-  // IPv6 simplified
-  const v6 = ip.toLowerCase();
-  if (v6 === "::1") return true;
-  if (v6.startsWith("fc") || v6.startsWith("fd")) return true; // ULA
-  if (v6.startsWith("fe80")) return true; // link-local
-  if (v6.startsWith("::ffff:")) {
-    return isPrivateIp(v6.slice(7));
-  }
-  return false;
 }
 
 /** Cloudflare DNS-over-HTTPS (JSON) — shared low-level helper. */
@@ -191,6 +175,7 @@ export async function resolveDns(host: string): Promise<DnsResult> {
   if (a.length === 0 && aaaa.length === 0) {
     throw new Error("dns_no_records");
   }
+  assertPublicAnswers([...a, ...aaaa]);
 
   const result: DnsResult = {
     host: h,
@@ -203,106 +188,28 @@ export async function resolveDns(host: string): Promise<DnsResult> {
   return result;
 }
 
-function assertPublicUrl(raw: string): URL {
-  const s = raw.trim();
-  if (!s) throw new Error("missing url");
-  if (s.length > 2048) throw new Error("url_too_long");
-  let u: URL;
-  try {
-    u = new URL(s);
-  } catch {
-    throw new Error("invalid_url");
-  }
-  if (u.protocol !== "http:" && u.protocol !== "https:") {
-    throw new Error("invalid_protocol");
-  }
-  if (u.username || u.password) throw new Error("url_auth_not_allowed");
-  const host = u.hostname.toLowerCase();
-  if (host === "localhost" || host.endsWith(".local") || host.endsWith(".internal")) {
-    throw new Error("host_not_allowed");
-  }
-  if (isPrivateIp(host)) throw new Error("private_ip_not_allowed");
-  return u;
-}
+const PROBE_UA = "x402-vending-machine/0.1 (+infra-probe)";
 
-/** Resolve hostname and reject private A/AAAA (SSRF guard). */
-export async function assertPublicHostResolves(host: string): Promise<void> {
-  const h = normalizeHost(host);
-  if (isPrivateIp(h)) throw new Error("private_ip_not_allowed");
-  try {
-    const addrs = await dnsLookup(h, { all: true });
-    const list = Array.isArray(addrs) ? addrs : [addrs];
-    for (const a of list) {
-      if (isPrivateIp(a.address)) throw new Error("resolves_to_private_ip");
-    }
-  } catch (e) {
-    if (String(e).includes("private") || String(e).includes("not_allowed")) throw e;
-    // NXDOMAIN etc. — let HEAD/TLS fail with their own errors
-  }
-}
-
-async function singleHeadOrGet(url: string): Promise<Response> {
-  try {
-    return await fetch(url, {
-      method: "HEAD",
-      redirect: "manual",
-      signal: AbortSignal.timeout(7000),
-      headers: { "User-Agent": "x402-vending-machine/0.1 (+infra-probe)" },
-    });
-  } catch {
-    return await fetch(url, {
-      method: "GET",
-      redirect: "manual",
-      signal: AbortSignal.timeout(7000),
-      headers: {
-        "User-Agent": "x402-vending-machine/0.1 (+infra-probe)",
-        Range: "bytes=0-0",
-      },
-    });
-  }
-}
-
+/** Customer URL HEAD. Pins each hop. Never uses redirect:"follow". */
 export async function httpHead(urlRaw: string): Promise<HeadResult> {
-  const u = assertPublicUrl(urlRaw);
-  await assertPublicHostResolves(u.hostname);
-
-  const started = Date.now();
-  // Follow redirects ourselves so we can SSRF-check each hop
-  let current = u.toString();
-  let res: Response | null = null;
-  for (let hop = 0; hop < 8; hop++) {
-    const hopUrl = assertPublicUrl(current);
-    await assertPublicHostResolves(hopUrl.hostname);
-    res = await singleHeadOrGet(hopUrl.toString());
-    if (res.status >= 300 && res.status < 400) {
-      const loc = res.headers.get("location");
-      if (!loc) break;
-      current = new URL(loc, hopUrl).toString();
-      continue;
-    }
-    break;
-  }
-  if (!res) throw new Error("head_failed");
-
-  const finalUrl = res.url && res.url !== "" ? res.url : current;
-  try {
-    const final = new URL(finalUrl);
-    if (isPrivateIp(final.hostname)) throw new Error("redirect_private_ip");
-  } catch (e) {
-    if (String(e).includes("private")) throw e;
-  }
-
+  const result = await publicHttp(urlRaw, "HEAD", {
+    fallbackGet: true,
+    timeoutMs: 7_000,
+    maxHops: 8,
+    maxBytes: 0,
+    headers: { "User-Agent": PROBE_UA },
+  });
   return {
-    url: u.toString(),
-    final_url: finalUrl,
-    status: res.status,
-    ok: res.ok,
-    ms: Date.now() - started,
+    url: result.url,
+    final_url: result.finalUrl,
+    status: result.status,
+    ok: result.status >= 200 && result.status < 300,
+    ms: result.ms,
     headers: {
-      "content-type": res.headers.get("content-type"),
-      server: res.headers.get("server"),
-      "content-length": res.headers.get("content-length"),
-      location: res.headers.get("location"),
+      "content-type": result.headers.get("content-type"),
+      server: result.headers.get("server"),
+      "content-length": result.headers.get("content-length"),
+      location: result.headers.get("location"),
     },
   };
 }
@@ -323,47 +230,28 @@ export type RedirectTraceResult = {
   ms_total: number;
 };
 
-/** Follow redirects manually (max 10 hops), SSRF-safe, real statuses only. */
+/** Follow redirects manually (max 10 hops). Each hop is re-resolved and pinned. */
 export async function redirectTrace(urlRaw: string, maxHops = 10): Promise<RedirectTraceResult> {
-  const start = assertPublicUrl(urlRaw);
-  await assertPublicHostResolves(start.hostname);
-  const hops: RedirectHop[] = [];
-  const t0 = Date.now();
-  let current = start.toString();
-  let finalStatus = 0;
-
-  for (let i = 0; i < maxHops; i++) {
-    const hopUrl = assertPublicUrl(current);
-    await assertPublicHostResolves(hopUrl.hostname);
-    const hopStart = Date.now();
-    let res: Response;
-    try {
-      res = await singleHeadOrGet(hopUrl.toString());
-    } catch (e) {
-      throw new Error(`redirect_hop_failed: ${String(e).slice(0, 120)}`);
-    }
-    const location = res.headers.get("location");
-    hops.push({
-      url: hopUrl.toString(),
-      status: res.status,
-      location,
-      ms: Date.now() - hopStart,
-    });
-    finalStatus = res.status;
-    if (res.status >= 300 && res.status < 400 && location) {
-      current = new URL(location, hopUrl).toString();
-      continue;
-    }
-    break;
-  }
-
+  const hopsLimit = Math.min(10, Math.max(1, maxHops));
+  const result = await publicHttp(urlRaw, "HEAD", {
+    fallbackGet: true,
+    timeoutMs: 7_000,
+    maxHops: hopsLimit,
+    maxBytes: 0,
+    headers: { "User-Agent": PROBE_UA },
+  });
   return {
-    start_url: start.toString(),
-    final_url: hops.length ? hops[hops.length - 1].url : start.toString(),
-    hop_count: hops.length,
-    hops,
-    final_status: finalStatus,
-    ms_total: Date.now() - t0,
+    start_url: result.url,
+    final_url: result.finalUrl,
+    hop_count: result.hops.length,
+    hops: result.hops.map((hop) => ({
+      url: hop.url,
+      status: hop.status,
+      location: hop.location,
+      ms: hop.ms,
+    })),
+    final_status: result.status,
+    ms_total: result.ms,
   };
 }
 
@@ -457,32 +345,37 @@ function dnToObject(dn: string | undefined | null): Record<string, string> | nul
   return Object.keys(out).length ? out : { cn: dn };
 }
 
+function redactCertError(value: unknown): string | null {
+  if (!value) return null;
+  const text = String(value).replace(/https?:\/\/\S+/gi, "redacted").slice(0, 140);
+  return text || null;
+}
+
 export async function tlsCertPeek(hostRaw: string, portRaw?: string | number): Promise<TlsResult> {
   const host = normalizeHost(hostRaw);
-  await assertPublicHostResolves(host);
   const port = Number(portRaw ?? 443) || 443;
   if (!Number.isInteger(port) || (port !== 443 && port !== 8443)) {
     throw new Error("port_not_allowed");
   }
+  const pinned = await resolvePublicAddress(host);
 
   const started = Date.now();
   return new Promise<TlsResult>((resolve, reject) => {
     const socket = tls.connect(
       {
-        host,
+        host: pinned.address,
         port,
-        servername: host,
+        servername: isIP(host) ? undefined : host,
         rejectUnauthorized: false, // we report auth status ourselves
         timeout: 7000,
-      },
+        family: pinned.family,
+      } as tls.ConnectionOptions,
       () => {
         try {
           const cert = socket.getPeerCertificate();
           const proto = socket.getProtocol();
           const authorized = socket.authorized;
-          const authErr = socket.authorizationError
-            ? String(socket.authorizationError)
-            : null;
+          const authErr = redactCertError(socket.authorizationError);
 
           let validFrom: string | null = null;
           let validTo: string | null = null;
@@ -526,16 +419,16 @@ export async function tlsCertPeek(hostRaw: string, portRaw?: string | number): P
           };
           socket.end();
           resolve(result);
-        } catch (e) {
+        } catch {
           socket.destroy();
-          reject(new Error(`tls_parse_failed: ${String(e).slice(0, 100)}`));
+          reject(new Error("tls_parse_failed"));
         }
       },
     );
 
-    socket.on("error", (err) => {
+    socket.on("error", () => {
       socket.destroy();
-      reject(new Error(`tls_failed: ${String(err.message).slice(0, 140)}`));
+      reject(new Error("tls_failed"));
     });
     socket.setTimeout(7000, () => {
       socket.destroy();
@@ -645,8 +538,8 @@ export async function whoisLite(domainRaw: string): Promise<WhoisLiteResult> {
         "User-Agent": "x402-vending-machine/0.1 (+whois-lite)",
       },
     });
-  } catch (e) {
-    throw new Error(`rdap_failed: ${String(e).slice(0, 120)}`);
+  } catch {
+    throw new Error("rdap_failed");
   }
 
   if (res.status === 404) throw new Error("domain_not_found");

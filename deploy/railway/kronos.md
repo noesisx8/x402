@@ -7,7 +7,7 @@
 | Root directory | `apps/kronos-api` |
 | Builder | Dockerfile |
 | Healthcheck | `GET /health` |
-| Start | `sh -c 'exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}'` (shell required for `$PORT` expansion on Dockerfile services) |
+| Start | `sh -c 'exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080} --http h11 --limit-concurrency ${UVICORN_LIMIT_CONCURRENCY:-16}'` (shell required for `$PORT` expansion on Dockerfile services) |
 
 ## Variables
 
@@ -20,6 +20,8 @@
 | `KRONOS_MAX_LOOKBACK` | no | `256` |
 | `KRONOS_MAX_PRED_LEN` | no | `24` |
 | `PORT` | auto | Railway injects |
+| `KRONOS_MAX_BODY_BYTES` | no | `65536` (request body cap before auth) |
+| `UVICORN_LIMIT_CONCURRENCY` | no | `16` |
 
 ## Resources
 
