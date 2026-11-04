@@ -81,8 +81,11 @@ credential is added. The public payment-pipeline response remains safe JSON 502.
 | postcss-selector-parser | 6.1.4 | 6.1.5 |
 
 The original PR's other compatible patches, including its separate `apps/api`
-patches, are retained. No force audit fix, package downgrade, or Tailwind major
-upgrade is used.
+patches, are retained. The API's body-parser lock was also refreshed from 1.20.8
+to the compatible 1.20.9 patch for the newly reported compressed-body DoS
+([advisory](https://github.com/advisories/GHSA-27r3-jxmh-p828)); this app uses
+`express.json`, so the body-parser path is present. No force audit fix, package
+downgrade, or Tailwind major upgrade is used.
 
 Fresh npm metadata declares `@x402/next@2.29.0` peers `next >=16.4.1` and optional
 paywall `^2.29.0`; Next 16.4.5 satisfies them and React 19 satisfies both Next
@@ -164,6 +167,14 @@ install mode does not yield a clean whole-wallet `npm ls`. The direct x402/Next
 requirements were checked separately. This PR does not claim the entire wallet
 tree is fully supported or vulnerability-free.
 
+The separately deployed `apps/api` audit was refreshed too: 6 high findings
+before its body-parser patch, **5 high after**, all from its older Zod 3/x402
+dependency chain. Its x402/Zod migration is outside this vending-framework
+upgrade. Its environment validation uses Zod and untrusted payment parsing is
+pre-gated by the shared envelope size/shape checks; those limits do not establish
+that all SDK Zod collection-validation paths are safe. Do not describe this
+separate app as audit-clean based on the old PR's historical result.
+
 Upstream paywall HTML contains prebundled browser JavaScript. npm overrides do
 not rewrite those embedded bundles; wallet security cannot be inferred from
 lockfile changes alone. These residuals require an upstream wallet migration
@@ -195,11 +206,28 @@ of production configuration. Info-level logs after probes showed expected
 402/400 events and no `request_failed`. This preview used Node 26; final runtime
 verification follows the engine-override correction described above.
 
-Browser UI verification reached Vercel two-factor sign-in and remains pending
-user sign-in. Automatic approval review rejected a protected-fetch call because
-it creates/reuses an access-sharing URL; that method was stopped. No security
-protection was disabled. A live wallet signing/settlement test is still
-pending; funded smoke may run **only on portalv2 after explicit approval**.
+After user sign-in, final code preview `da7ebf4558bcb448d394a8b570730e83bc6c9d2f`
+was READY at
+`https://vending-machine-8z6qit30g-x-vendor.vercel.app`, deployment
+`dpl_Aj8egAJ2wXmAnkKu4iS6modN1adH`. Runtime logs on November 4
+09:37–09:39Z confirm **nodejs24.x** and expected GET/HEAD `402_issued` events.
+The custom QR payment page rendered, its unpaid button displayed HTTP 402, and
+Connect wallet showed the expected no-browser-wallet error while Pay stayed
+disabled. The installed SDK's HTML paywall rendered the $0.002 USDC price,
+Base Sepolia hint, and wallet selector. No installed wallet was available for
+an actual connection/signature. The full API variant matrix was run on the first
+preview; final code changes only removed the engine override and updated docs.
+
+Automatic approval review rejected a protected-fetch call because it
+creates/reuses an access-sharing URL; that method was stopped. Earlier successful
+connector fetches may have created or reused a temporary preview share link; the
+inspection did not determine which. CLI variants used authenticated `vercel curl`;
+the CLI can generate an automation token if absent, although no generation
+message appeared. After the rejection, no more share/bypass operations were
+attempted; browser checks used the user's completed Vercel sign-in. No protection
+was disabled. A live wallet signing/settlement test is still pending; funded smoke
+may run **only on portalv2 after explicit approval**.
+
 
 Proposed rollout after review and explicit approval: repeat audit on the deploy
 host; verify preview and funded portalv2 smoke; stage a production build with the
