@@ -1,6 +1,7 @@
 import { HTTPFacilitatorClient, x402ResourceServer } from "@x402/core/server";
 import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { bazaarResourceServerExtension } from "@x402/extensions/bazaar";
+import { SingleInitResourceServer } from "@/lib/x402/single-init-resource-server";
 import { CAIP_NETWORK, serverEnv } from "@/lib/env";
 import {
   createCdpFacilitatorAuthHeaders,
@@ -76,14 +77,17 @@ export function getResourceServer(): Promise<x402ResourceServer> {
           : {}),
       });
 
-      const server = new x402ResourceServer(facilitator)
+      const server = new SingleInitResourceServer(facilitator)
         .register(network, new ExactEvmScheme())
         .registerExtension(bazaarExtensionFixed as typeof bazaarResourceServerExtension);
 
       await server.initialize();
       resourceServer = server;
       return server;
-    })();
+    })().catch((error: unknown) => {
+      initPromise = null;
+      throw error;
+    });
   }
   return initPromise;
 }

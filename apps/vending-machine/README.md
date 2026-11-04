@@ -1,6 +1,6 @@
 # x402 Vending Machine (Vercel)
 
-Modular Next.js 15 App Router hub: add paid utilities in `lib/services/registry.ts`, deploy to Vercel, settle USDC via x402 V2 (`exact` scheme).
+Modular Next.js 16 App Router hub: add paid utilities in `lib/services/registry.ts`, deploy to Vercel, settle USDC via x402 V2 (`exact` scheme).
 
 **Do not run production on your daily driver** — deploy only to Vercel (or portalv2/Railway sibling `apps/api`).
 
@@ -19,6 +19,17 @@ cp .env.example .env.local
 npm install --legacy-peer-deps
 npm run dev   # local UI only; paid flow needs facilitator + funded wallet
 ```
+
+Node.js 20.9+ is required. x402 packages are pinned together at 2.29.0;
+`@x402/next` requires Next.js 16.4.1 or newer. Builds and development use Webpack
+to preserve the shared request guard's `.js` → `.ts` resolution. Next.js 16
+removed `next lint`; use `npm run check` for the configured static check.
+The upgrade investigation and release gates are in
+[`docs/VENDING_HEALTH_2026-11-04.md`](../../docs/VENDING_HEALTH_2026-11-04.md).
+
+`npm run test:payment` needs Node.js 22.15+ for its test-only module loader. It
+exercises the real route and SDK with a mocked facilitator and blocks network
+access; it never uses a wallet or funded authorization.
 
 ## Add a service (minimal)
 
