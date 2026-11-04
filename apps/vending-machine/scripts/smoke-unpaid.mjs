@@ -8,7 +8,7 @@
  *   BASE_URL=https://vending-machine-seven.vercel.app node scripts/smoke-unpaid.mjs
  */
 
-const BASE = (process.env.BASE_URL ?? "https://vending-machine-seven.vercel.app").replace(/\/$/, "");
+const BASE = (process.env.BASE_URL ?? "https://vendsdk.com").replace(/\/$/, "");
 
 let failed = 0;
 
@@ -81,13 +81,43 @@ async function main() {
           accept?.payTo,
         );
         ok(
-          "resource url bound to path",
+          "resource url bound to path and query",
           typeof decoded.resource?.url === "string" &&
-            decoded.resource.url.includes("/api/v/qr-code"),
+            new URL(decoded.resource.url).pathname === "/api/v/qr-code" &&
+            new URL(decoded.resource.url).search === "?data=smoke-test",
           decoded.resource?.url,
         );
       }
     }
+  }
+
+  // Request negotiation and method/path variants must never execute a service unpaid.
+  for (const variant of [
+    { path: "/api/v/qr-code?data=head-smoke", method: "HEAD", accept: "application/json" },
+    { path: "/api/v/%71r-code?data=encoded-smoke", method: "GET", accept: "application/json" },
+    { path: "/api/v/qr-code?data=html-smoke", method: "GET", accept: "text/html" },
+  ]) {
+    const res = await fetch(`${BASE}${variant.path}`, {
+      method: variant.method,
+      headers: { accept: variant.accept },
+    });
+    ok(`${variant.method} ${variant.path} (${variant.accept}) → 402`, res.status === 402);
+    ok("variant Payment-Required", Boolean(res.headers.get("payment-required")));
+    if (variant.method === "HEAD") ok("HEAD has no body", (await res.text()) === "");
+  }
+
+  for (const method of ["POST", "PUT", "DELETE"]) {
+    const res = await fetch(`${BASE}/api/v/qr-code?data=method-smoke`, { method });
+    ok(`${method} cannot execute service`, res.status === 405);
+  }
+
+  {
+    const res = await fetch(`${BASE}/api/v/qr-code?data=malformed-smoke`, {
+      headers: { "payment-signature": "not-a-payment" },
+    });
+    ok("malformed payment rejected", res.status === 400);
+    const body = await res.json();
+    ok("malformed payment stable error", body.error === "payment_malformed");
   }
 
   // unknown slug

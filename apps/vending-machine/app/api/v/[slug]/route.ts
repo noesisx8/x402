@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withX402 } from "@x402/next";
 import { getResourceServer } from "@/lib/x402/resource-server";
+import { paymentPipelineDiagnostics, type PaymentPipelineStage } from "@/lib/x402/diagnostics";
 import { SERVICES_BY_SLUG } from "@/lib/services/registry";
 import { serviceRouteConfig } from "@/lib/services/types";
 import {
@@ -21,7 +22,7 @@ export const runtime = "nodejs";
 
 type Wrapped = (request: NextRequest) => Promise<NextResponse>;
 
-const wrappedHandlers: Record<string, Wrapped> = {};
+const wrappedHandlers = new Map<string, Wrapped>();
 
 /**
  * One gate per isolate. Redis (Vercel KV / Upstash) covers other isolates when configured.
@@ -40,9 +41,10 @@ function paymentHeader(request: NextRequest): string | null {
 }
 
 async function ensureWrapped(slug: string): Promise<Wrapped | null> {
+  if (!Object.hasOwn(SERVICES_BY_SLUG, slug)) return null;
   const svc = SERVICES_BY_SLUG[slug];
-  if (!svc) return null;
-  if (wrappedHandlers[slug]) return wrappedHandlers[slug];
+  const cached = wrappedHandlers.get(slug);
+  if (cached) return cached;
 
   const server = await getResourceServer();
   const inner = async (request: NextRequest) => {
@@ -75,8 +77,9 @@ async function ensureWrapped(slug: string): Promise<Wrapped | null> {
     }
   };
 
-  wrappedHandlers[slug] = withX402(inner, serviceRouteConfig(svc), server) as unknown as Wrapped;
-  return wrappedHandlers[slug];
+  const wrapped = withX402(inner, serviceRouteConfig(svc), server) as unknown as Wrapped;
+  wrappedHandlers.set(slug, wrapped);
+  return wrapped;
 }
 
 /**
@@ -92,7 +95,7 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
   const payHdr = paymentHeader(request);
   const ip = clientIpFromHeaders(request.headers);
 
-  if (!SERVICES_BY_SLUG[slug]) {
+  if (!Object.hasOwn(SERVICES_BY_SLUG, slug)) {
     return NextResponse.json({ error: "unknown_service", slug }, { status: 404 });
   }
 
@@ -154,13 +157,14 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
     });
   }
 
-  const handler = await ensureWrapped(slug);
-  if (!handler) {
-    if (finish) await finish(404);
-    return NextResponse.json({ error: "unknown_service", slug }, { status: 404 });
-  }
-
+  let stage: PaymentPipelineStage = "wrapper_initialization";
   try {
+    const handler = await ensureWrapped(slug);
+    if (!handler) {
+      if (finish) await finish(404);
+      return NextResponse.json({ error: "unknown_service", slug }, { status: 404 });
+    }
+    stage = "payment_processing";
     const res = await handler(request);
     if (finish) await finish(res.status);
     const ms = Date.now() - started;
@@ -199,6 +203,8 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
         ms,
         userAgentHint: ua,
         error: `upstream_status_${res.status}`,
+        stage,
+        errorCode: "payment_pipeline_response_error",
       });
     }
 
@@ -213,6 +219,8 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ slug: s
       userAgentHint: ua,
       payerHint,
       error: publicErrorMessage(e),
+      stage,
+      ...paymentPipelineDiagnostics(e),
     });
     return NextResponse.json(
       { error: "facilitator_or_server_error", message: "payment pipeline failed" },
