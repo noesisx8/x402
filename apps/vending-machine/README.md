@@ -20,7 +20,8 @@ npm install --legacy-peer-deps
 npm run dev   # local UI only; paid flow needs facilitator + funded wallet
 ```
 
-Node.js 20.9+ is required. x402 packages are pinned together at 2.29.0;
+Next.js requires Node.js 20.9+; Vercel uses the project's existing Node 24
+setting. x402 packages are pinned together at 2.29.0;
 `@x402/next` requires Next.js 16.4.1 or newer. Builds and development use Webpack
 to preserve the shared request guard's `.js` → `.ts` resolution. Next.js 16
 removed `next lint`; use `npm run check` for the configured static check.

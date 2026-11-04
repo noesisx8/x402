@@ -93,7 +93,10 @@ solution. `--legacy-peer-deps` remains the repository install mode; it is not
 evidence of compatibility.
 
 Next 16 requires Node >=20.9. Production is configured for Node 24; local checks
-use Node 22.22.3. Dev/build explicitly select Webpack to retain the shared guard's
+use Node 22.22.3. A first preview revealed that a broad `engines.node >=20.9`
+override selected Node 26 despite that project setting; the override was removed
+so deployments retain the existing project Node 24 selection. Dev/build
+explicitly select Webpack to retain the shared guard's
 `.js` to `.ts` resolution. Next generated the React JSX runtime and dev-type
 include changes. The obsolete `next lint` script was removed (the app had no
 configured ESLint dependency); `check` is the static check. Existing async params
@@ -102,6 +105,24 @@ already satisfy Next 16. No Cache Components or React Compiler migration is adde
 Core 2.29 moves untrusted payment schemas to patched Zod 4 and bounds collection
 sizes. App direct Zod validates environment strings and enums; it has no use of
 removed `.errors` APIs. Do not globally override transitive Zod 3 to a new major.
+
+Published fixes since 2.17 also cover wildcard line terminators, raw/decoded
+paths and encoded separators, HEAD protection, facilitator capability validation,
+typed timeout errors, and bounded facilitator response bodies. These do not
+prevent the app's shared initialization race. The installed 2.29 client defaults
+to a 90-second facilitator timeout, longer than this route's 60-second maximum;
+an explicit end-to-end timeout budget remains follow-up work and cannot explain
+the immediate 0–1 ms failures.
+
+Recent upstream main adds non-object payment-header rejection, facilitator hook
+isolation, and stronger exact-EVM malformed-payload checks. These are unpublished
+and **not claimed as included in 2.29**. Our request gate already rejects
+non-object/oversized incoming envelopes; it does not replace the unpublished
+client-response decoder changes or full facilitator validation. See the
+[published changelog](https://github.com/x402-foundation/x402/blob/e4a086819f419e9395acbbdc1679fe6627029ff7/typescript/packages/core/CHANGELOG.md),
+[decoder change](https://github.com/x402-foundation/x402/commit/3c0a740ef84f5a58215a75b709b2f3332839463c),
+[hook change](https://github.com/x402-foundation/x402/commit/70749431c4936e71c874177931b8be3cefe2a0ac),
+and [EVM change](https://github.com/x402-foundation/x402/commit/70303ce66282641d1d1b64bd4a54b1c4389ca4e9).
 
 Primary references: [published x402 peer metadata](https://registry.npmjs.org/@x402%2fnext/2.29.0),
 [core changelog](https://github.com/x402-foundation/x402/blob/main/typescript/packages/core/CHANGELOG.md),
@@ -165,8 +186,19 @@ cleanup, unpaid HEAD/encoding/HTML/query variants, malformed-payment rejection,
 handler 400 with no settle, replay/use caps, and one mocked success with a
 settlement header. This is not a real signature, facilitator, or chain test.
 
-Preview results and final clean-install results are recorded in the PR after
-the branch preview is built. A live wallet signing/settlement test is still
+The first exact preview (`c969d4c`, deployment `dpl_9qBQGd7dF4ofLtZoaRvwzyCxQpJg`)
+was READY and passed unpaid API/discovery/method/path checks: GET/HEAD/encoded
+and browser requests 402 with V2 requirements and full URL binding, unsupported
+methods 405, malformed payment 400, and inherited-property slug 404. Its
+configuration is Base Sepolia with placeholder merchant/no CDP auth, not a copy
+of production configuration. Info-level logs after probes showed expected
+402/400 events and no `request_failed`. This preview used Node 26; final runtime
+verification follows the engine-override correction described above.
+
+Browser UI verification reached Vercel two-factor sign-in and remains pending
+user sign-in. Automatic approval review rejected a protected-fetch call because
+it creates/reuses an access-sharing URL; that method was stopped. No security
+protection was disabled. A live wallet signing/settlement test is still
 pending; funded smoke may run **only on portalv2 after explicit approval**.
 
 Proposed rollout after review and explicit approval: repeat audit on the deploy

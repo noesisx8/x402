@@ -29,9 +29,6 @@
     "viem": "^2.54.6",
     "zod": "^4.6.7"
   },
-  "engines": {
-    "node": ">=20.9.0"
-  },
   "devDependencies": {
     "@types/node": "^22.10.5",
     "@types/react": "^19.0.2",
