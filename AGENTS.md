@@ -6,7 +6,7 @@ Agent-native micropayment services: HTTP 402 pay-per-call APIs settling USDC on 
 
 | Path | Purpose |
 |------|---------|
-| `apps/vending-machine` | **Main product.** Next.js 15 App Router paid-services hub, deployed to Vercel. Services catalog in `lib/services/registry.ts`; dynamic paid route `app/api/v/[slug]/route.ts`. |
+| `apps/vending-machine` | **Main product.** Next.js 16 App Router paid-services hub, deployed to Vercel. Services catalog in `lib/services/registry.ts`; dynamic paid route `app/api/v/[slug]/route.ts`. |
 | `apps/api` | Standalone Express 4 monetized API (DNS lookup, HTTP HEAD probe). Deployed to Railway or portalv2 only. |
 | `apps/kronos-api` | Python/FastAPI Kronos forecast service (Docker, Railway). See `docs/KRONOS.md`, `deploy/railway/kronos.md`. |
 | `apps/facilitator-proxy` | Empty placeholder — reserved for a self-hosted verify/settle proxy. |
@@ -39,7 +39,7 @@ No monorepo tooling — each app has its own `package.json` / lockfile; `cd` int
 ## Stack
 
 - Node 20+, TypeScript 5.7 (strict), ESM (`"type": "module"`)
-- `apps/vending-machine`: Next.js 15, React 19, Tailwind 3, zod, viem, `@x402/next`, `@x402/core`, `@x402/evm`, `@x402/fetch`, `@coinbase/cdp-sdk`
+- `apps/vending-machine`: Next.js 16, React 19, Tailwind 3, Zod 4, viem, `@x402/next`, `@x402/core`, `@x402/evm`, `@x402/fetch`, `@coinbase/cdp-sdk`. Version-matched Next.js docs: `apps/vending-machine/node_modules/next/dist/docs/`.
 - `apps/api`: Express 4, zod, `@x402/express`, `@x402/core`, `@x402/evm`
 - Facilitator: Coinbase CDP hosted (`https://api.cdp.coinbase.com/platform/v2/x402`, JWT auth via `CDP_API_KEY_ID`/`CDP_API_KEY_SECRET`) or public `https://x402.org/facilitator` (testnet default)
 - Receiver: `X402_PAY_TO_ADDRESS` (EVM). Production pay-to: `0xc648116b5deBE4AF7D78838AA468d07e0A9Ab697`
@@ -54,8 +54,8 @@ All run inside the app directory. Install with `npm install --legacy-peer-deps` 
 npm run dev            # local UI only; paid flow needs facilitator + funded wallet
 npm run build          # next build
 npm run check          # tsc --noEmit (type check)
-npm run lint           # next lint
 npm run test:unit      # node scripts/phase0-unit.mjs — price caps + rate-limit contract (no network)
+npm run test:payment   # actual route/SDK with mocked facilitator; Node 22.15+, no network or wallet
 npm run smoke:unpaid   # live 402 + discovery against production (no wallet)
 npm run smoke:paid     # PAID mainnet E2E — portalv2 only, needs X402_PRIVATE_KEY=0x…
 

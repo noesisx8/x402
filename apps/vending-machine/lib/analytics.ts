@@ -24,6 +24,11 @@ export type CallLog = {
   payerHint?: string;
   userAgentHint?: string;
   error?: string;
+  /** Fixed diagnostic labels only; no raw exception messages or payment data. */
+  stage?: "wrapper_initialization" | "payment_processing";
+  errorClass?: string;
+  errorCode?: string;
+  networkErrorCode?: string;
   at: string;
 };
 
