@@ -20,7 +20,7 @@ for (const [target, network, expectedUrl, succeeds] of [
   ["production", "base", "https://production.invalid", true],
   ["preview", "base", null, false],
 ]) {
-  const result = spawnSync(process.execPath, ["--input-type=module", "-e",
+  const result = spawnSync(process.execPath, ["--experimental-strip-types", "--input-type=module", "-e",
     `const { serverEnv } = await import('./lib/env.ts'); console.log(serverEnv.PUBLIC_BASE_URL);`], {
     cwd: appDir,
     encoding: "utf8",

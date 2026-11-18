@@ -18,6 +18,21 @@ Clean installs from both app lockfiles. Node 24.22.3 and disposable Redis 8.0.6,
 - API: `npm run test:security` (build plus 6/6) passed.
 - Build retains the existing viem/ox dynamic-import warning.
 
+## Deployed preview evidence
+
+Runtime code commit `a054c0baef4aaa8bb382b542fbf3388a56878154` built successfully as a Git preview in `x-vendor/vending-machine`, Node 24, Next.js 16.4.5:
+
+- Deployment: `dpl_AB5L59m5Xh2bUXg1cosBzrPsKoPK`.
+- Exact tested URL: https://vending-machine-2ezs2syq9-x-vendor.vercel.app.
+- Moving #25 preview: https://vending-machine-git-fix-atomic-payment-admission-x-vendor.vercel.app.
+- 36 authenticated HTTP checks passed: homepage, health, client config, discovery/OpenAPI on the preview origin, all 19 service paywalls, full request URL binding, HEAD, encoded path, browser negotiation, rejected write methods, malformed payment and unknown service.
+- Three structurally valid fake envelopes with deliberately mismatched quote terms returned 402; the fourth returned 429 `payment_use_cap`. This exercised the actual provider's Lua claim/finalize/use counter in the isolated branch namespace without valid signatures, handler execution, or settlement. Runtime-log search found no `handler_` events during these checks.
+- No production deployment, settings, paid request or mainnet keys were used. The original working copy's uncommitted changes were preserved; review/build ran in a separate clone.
+
+The test subprocess passes `--experimental-strip-types` explicitly to retain the documented Node 22.15+ test compatibility; deployed application code is unchanged by that test-only follow-up.
+
+The GitHub CodeQL Python and TypeScript jobs both report that they never started because the account is locked for a billing issue. This is an execution blocker, not a successful or failed source analysis. Account billing must be resolved and both jobs rerun before production.
+
 ## Dependency gate
 
 The November 18 registry audit is newer than the report in #24. Vending currently reports 0 critical, 39 high and 9 moderate affected packages; API reports 0 critical and 5 high. These counts include transitive/metavulnerable packages, not that many distinct flaws. Vending roots include decode-uri-component, picomatch, nested Zod 3, Hono and uuid; API roots include nested Zod 3. No forced paywall downgrade, Tailwind major migration or Zod 3→4 override was applied. These audits are release blockers requiring separate compatibility/exposure review before production, not a claim that this preview is vulnerability-free.
@@ -25,7 +40,7 @@ The November 18 registry audit is newer than the report in #24. Vending currentl
 ## Production gates remain
 
 - Review the current dependency audit and validate compatible remediation or explicit exposure decisions.
-- Confirm the Redis provider supports the actual Lua scripts and meets durability/non-eviction requirements. A successful preview command does not prove durability.
+- Confirm the Redis provider's durability/non-eviction requirements. The deployed preview exercised `EVAL` successfully; this does not prove durability.
 - Use the documented external pause/drain plan before changing production writers, including old deployment URLs and Express services sharing production keys.
 - Perform the funded receipt/authorization-consumption smoke on portalv2 only, with explicit target/network/pay-to/amount checks.
 - Stage and verify a production build before a separately authorized promotion. No production branch merge, environment changes or promotion belongs to this preview task.
