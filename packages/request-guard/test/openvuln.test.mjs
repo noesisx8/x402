@@ -11,11 +11,19 @@ import {
   readSignedPayment,
   resolvePublicAddress,
   upstashPaymentLock,
+  upstashPaymentLockFromEnv,
 } from "../dist/index.js";
 
 const FROM = "0x" + "ab".repeat(20);
 const NONCE = "0x" + "11".repeat(32);
 const SIG = "0x" + "cd".repeat(65);
+
+test("preview isolation rejects mainnet and missing branch configuration", () => {
+  const env = { VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "fix/payments" };
+  assert.throws(() => upstashPaymentLockFromEnv({ ...env, X402_NETWORK_MODE: "base" }), /preview_requires_base_sepolia/);
+  assert.throws(() => upstashPaymentLockFromEnv({ VERCEL_ENV: "preview" }), /preview_payment_branch_missing/);
+  assert.equal(upstashPaymentLockFromEnv(env), null, "missing Redis still fails closed at admission");
+});
 
 function paymentHeader(overrides = {}) {
   const body = {

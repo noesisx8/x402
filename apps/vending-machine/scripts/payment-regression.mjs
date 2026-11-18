@@ -6,12 +6,37 @@ import { registerHooks } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import ts from "typescript";
+import { spawnSync } from "node:child_process";
 import { startRedisFixture } from "../../../packages/request-guard/test/redis-fixture.mjs";
 
 const useRedis = process.argv.includes("--redis");
 const nativeFetch = globalThis.fetch;
 
 const appDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+// Discovery in a protected preview must stay on that deployment even when the
+// project has a shared production PUBLIC_BASE_URL. Mainnet previews fail closed.
+for (const [target, network, expectedUrl, succeeds] of [
+  ["preview", "base-sepolia", "https://preview.invalid", true],
+  ["production", "base", "https://production.invalid", true],
+  ["preview", "base", null, false],
+]) {
+  const result = spawnSync(process.execPath, ["--input-type=module", "-e",
+    `const { serverEnv } = await import('./lib/env.ts'); console.log(serverEnv.PUBLIC_BASE_URL);`], {
+    cwd: appDir,
+    encoding: "utf8",
+    env: { ...process.env, VERCEL_ENV: target, VERCEL_URL: "preview.invalid",
+      PUBLIC_BASE_URL: "https://production.invalid", X402_NETWORK_MODE: network,
+      X402_PAY_TO_ADDRESS: "0x1111111111111111111111111111111111111111" },
+  });
+  assert.ifError(result.error);
+  if (succeeds) {
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), expectedUrl);
+  } else {
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /preview_requires_base_sepolia/);
+  }
+}
 const guardDir = resolve(appDir, "../../packages/request-guard/src");
 async function withTimeout(promise) {
   let timer;

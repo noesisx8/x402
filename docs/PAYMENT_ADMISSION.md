@@ -2,6 +2,12 @@
 
 Paid admission requires the shared Redis REST store (`KV_REST_API_URL` + `KV_REST_API_TOKEN`, or the corresponding `UPSTASH_REDIS_REST_*` variables). Do not put token values in URLs or logs. No configuration is changed by this PR.
 
+## Preview isolation
+
+Vercel previews require Base Sepolia and `VERCEL_GIT_COMMIT_REF`. They use branch-scoped keys (`x402:preview:<URL-encoded-branch>:pay:*`) so their Lua claims/finalizers cannot change production payment state, even when the project shares its Redis connection across environments. All isolates and redeploys of one preview branch share that branch's ledger. Production retains the existing `x402:pay:*` keys. This isolates payment state, not Redis credentials or capacity; a separate nonproduction Redis instance remains preferable.
+
+Preview discovery uses `VERCEL_URL` instead of a shared production `PUBLIC_BASE_URL`, keeping generated service/OpenAPI links on the preview. Mainnet preview configuration fails at startup. Local fixtures use fake signatures and a mock facilitator; funded tests still run only on portalv2.
+
 ## State and retry policy
 
 - An atomic Lua claim checks terminal state, lease and use cap, reserves one use, records `pending`, and acquires a 90-second lease with a unique owner token.
@@ -11,6 +17,7 @@ Paid admission requires the shared Redis REST store (`KV_REST_API_URL` + `KV_RES
 - Store failure before admission returns retryable 503 with `Retry-After: 1`, without verification/handler/settlement. A lost claim response might nevertheless have reserved the payment: later requests can remain busy/unknown. A lost finalize response never reopens the local gate.
 - Unknown means **reconcile before retrying**. Check facilitator/chain records using the authorization and transaction evidence through trusted operations tooling. Do not delete keys or automatically create a replacement payment. This PR does not implement a reconciliation service or claim a wallet was not charged.
 - Expiry must be in the future and within 24 hours; state survives authorization expiry plus 120 seconds. Missing/long-lived/expired authorizations are rejected as malformed rather than silently truncated to a shorter replay horizon.
+- A retry cannot shorten the existing use-count TTL by presenting an earlier expiry. Its pending state retains at least that same horizon.
 
 The Express API shares the conservative gate defaults; it does not yet classify proven pre-settlement failures as finely as the Next route. Its failure responses may retain the middleware's original status, but the same authorization remains blocked when outcome is uncertain.
 

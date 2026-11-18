@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test, before, after, beforeEach } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
-import { createPaymentGate, readSignedPayment, upstashPaymentLock } from "../dist/index.js";
+import { createPaymentGate, readSignedPayment, upstashPaymentLock, upstashPaymentLockFromEnv } from "../dist/index.js";
 import { startRedisFixture } from "./redis-fixture.mjs";
 
 let redis;
@@ -50,6 +50,30 @@ test("definite pre-settlement failures reserve uses atomically across instances"
     await result.finish(400, "retryable");
   }
   assertError(await gate().begin(header(), "ip"), 429, "payment_use_cap");
+});
+
+test("a retry with a shorter claimed expiry cannot shorten the shared replay horizon", async () => {
+  const remote = lock(), fp = fingerprint();
+  assert.equal(await remote.claim(fp, "long", 720, 3), "claimed");
+  assert.equal(await remote.finish(fp, "long", "retryable"), true);
+  assert.equal(await remote.claim(fp, "short", 120, 3), "claimed");
+  assert.ok(await redis.command("TTL", `x402:pay:uses:${fp}`) >= 719);
+  assert.ok(await redis.command("TTL", `x402:pay:state:${fp}`) >= 719);
+});
+
+test("preview branches share their own ledger without touching production or other previews", async () => {
+  const env = { KV_REST_API_URL: redis.url, KV_REST_API_TOKEN: "fixture-only" };
+  const preview = (branch) => upstashPaymentLockFromEnv({ ...env, VERCEL_ENV: "preview",
+    VERCEL_GIT_COMMIT_REF: branch, X402_NETWORK_MODE: "base-sepolia" });
+  const fp = fingerprint();
+  const production = upstashPaymentLockFromEnv({ ...env, VERCEL_ENV: "production" });
+  assert.equal(await production.claim(fp, "production", 120, 3), "claimed");
+  assert.equal(await preview("fix/atomic-payment-admission").claim(fp, "preview", 120, 3), "claimed");
+  assert.equal(await preview("fix/atomic-payment-admission").claim(fp, "other-isolate", 120, 3), "busy");
+  assert.equal(await preview("another-branch").claim(fp, "another-preview", 120, 3), "claimed");
+  assert.equal(await redis.command("GET", `x402:pay:lock:${fp}`), "production");
+  assert.equal(await preview("fix/atomic-payment-admission").finish(fp, "preview", "used"), true);
+  assert.equal(await redis.command("GET", `x402:pay:state:${fp}`), "pending");
 });
 
 test("stale owners cannot finalize or release a newer claim", async () => {

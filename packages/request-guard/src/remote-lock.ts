@@ -23,9 +23,10 @@ if state == 'pending' then
 end
 local uses = tonumber(redis.call('GET', KEYS[2]) or '0')
 if uses >= tonumber(ARGV[3]) then return 'capped' end
-redis.call('SET', KEYS[1], 'pending', 'EX', ARGV[2])
-redis.call('SET', KEYS[2], uses + 1, 'EX', ARGV[2])
-redis.call('SET', KEYS[3], ARGV[1], 'EX', math.min(90, tonumber(ARGV[2])))
+local ttl = math.max(tonumber(ARGV[2]), redis.call('TTL', KEYS[2]))
+redis.call('SET', KEYS[1], 'pending', 'EX', ttl)
+redis.call('SET', KEYS[2], uses + 1, 'EX', ttl)
+redis.call('SET', KEYS[3], ARGV[1], 'EX', math.min(90, ttl))
 return 'claimed'
 `;
 
@@ -40,12 +41,17 @@ redis.call('DEL', KEYS[3])
 return 1
 `;
 
-export function upstashPaymentLock(restUrl: string, token: string, fetchImpl: FetchLike = fetch): RemotePaymentLock {
+export function upstashPaymentLock(
+  restUrl: string,
+  token: string,
+  fetchImpl: FetchLike = fetch,
+  keyPrefix = "x402:pay",
+): RemotePaymentLock {
   const base = restUrl.replace(/\/$/, "");
   const keys = (fingerprint: string) => [
-    `x402:pay:state:${fingerprint}`,
-    `x402:pay:uses:${fingerprint}`,
-    `x402:pay:lock:${fingerprint}`,
+    `${keyPrefix}:state:${fingerprint}`,
+    `${keyPrefix}:uses:${fingerprint}`,
+    `${keyPrefix}:lock:${fingerprint}`,
   ];
   async function evaluate(script: string, fingerprint: string, args: (string | number)[]): Promise<unknown> {
     const response = await fetchImpl(base, {
@@ -77,9 +83,22 @@ export function upstashPaymentLock(restUrl: string, token: string, fetchImpl: Fe
   };
 }
 
-export function upstashPaymentLockFromEnv(env: NodeJS.ProcessEnv = process.env): RemotePaymentLock | null {
+/** Vercel previews use testnet and branch-local keys, never the production ledger. */
+export function upstashPaymentLockFromEnv(
+  env: NodeJS.ProcessEnv = process.env,
+  fetchImpl: FetchLike = fetch,
+): RemotePaymentLock | null {
+  let keyPrefix = "x402:pay";
+  if (env.VERCEL_ENV === "preview") {
+    if (env.X402_NETWORK_MODE && env.X402_NETWORK_MODE !== "base-sepolia") {
+      throw new Error("preview_requires_base_sepolia");
+    }
+    const branch = env.VERCEL_GIT_COMMIT_REF?.trim();
+    if (!branch) throw new Error("preview_payment_branch_missing");
+    keyPrefix = `x402:preview:${encodeURIComponent(branch)}:pay`;
+  }
   const url = env.KV_REST_API_URL || env.UPSTASH_REDIS_REST_URL;
   const token = env.KV_REST_API_TOKEN || env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) return null;
-  return upstashPaymentLock(url, token);
+  return upstashPaymentLock(url, token, fetchImpl, keyPrefix);
 }
