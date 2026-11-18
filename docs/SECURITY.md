@@ -26,7 +26,7 @@
 | Same fingerprint already in flight | **429** `payment_already_in_progress` |
 | Same fingerprint already consumed, or uses exhausted | **409** `payment_already_used` or **429** `payment_use_cap` |
 | Client retries **same** payment payload after successful settle | App ledger returns **409**. Do not rely on the facilitator to dedup concurrent verifies |
-| Client retries after **network drop** post-settle | Treat as read-only retry with **new** payment if first settle confirmed; check `PAYMENT-RESPONSE` / explorer |
+| Client retries after **network drop** post-settle | Reconcile facilitator/chain outcome first. Never automatically issue a new payment or assume no charge |
 | Different path/query than signed `resource.url` | Verify fails — payment not accepted for another route |
 
 **Contract tests (local, no chain):**
@@ -57,7 +57,9 @@ npm run smoke:paid
 | Handler runs per payment fingerprint | 3 | `X402_PAYMENT_MAX_USES` |
 | Consecutive paid failures per payer | 8 / window | `X402_PAYER_FAIL_LIMIT` |
 
-The fingerprint is `lower(authorization.from) + ":" + lower(authorization.nonce)` (EIP-3009 or Permit2). The in-memory ledger lives for one isolate. Its TTL is at least 120 seconds and at most 24 hours, so a `validBefore` further out than 24 hours can be replayed after the cap. When `KV_REST_API_URL` / `KV_REST_API_TOKEN` (or `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`) are set, a second lock is taken in Redis before the handler runs. If those variables are unset, or Redis errors, the isolate lock still holds and the process logs `payment_lock_unavailable`. Cross-isolate replay stays possible until Redis is configured. A Redis error does not turn into HTTP 503.
+The fingerprint is `lower(authorization.from) + ":" + lower(authorization.nonce)` (EIP-3009 or Permit2). Shared Redis is now required for paid admission: missing configuration or store errors return **503 `payment_lock_unavailable`** before verification or handler work. Unpaid discovery remains available. Claims and owner-checked finalization are atomic Lua operations; uses are reserved on claim. An expired lease never makes abandoned work retryable: its pending state becomes **409 `payment_outcome_unknown`** until authorization expiry plus a safety margin. An uncertain settlement must be reconciled, not automatically retried or described as uncharged.
+
+Authorizations must have a future expiry no more than 24 hours away; the ledger retains state through that expiry plus 120 seconds. Local-only admission requires explicit test/development opt-in and is prohibited under `NODE_ENV=production`. See [Payment admission](PAYMENT_ADMISSION.md) for tests, migration and Redis durability assumptions.
 
 ## Customer-URL and DNS probes
 

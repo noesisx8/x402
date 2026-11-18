@@ -30,8 +30,10 @@ export const serverEnv = z
     X402_FACILITATOR_URL: process.env.X402_FACILITATOR_URL ?? "https://x402.org/facilitator",
     X402_NETWORK_MODE: process.env.X402_NETWORK_MODE ?? "base-sepolia",
     PUBLIC_BASE_URL:
-      process.env.PUBLIC_BASE_URL ??
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined),
+      process.env.VERCEL_ENV === "preview" && process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : process.env.PUBLIC_BASE_URL ??
+          (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined),
     CDP_API_KEY_ID: process.env.CDP_API_KEY_ID,
     CDP_API_KEY_SECRET: process.env.CDP_API_KEY_SECRET,
     ANALYTICS_TOKEN: process.env.ANALYTICS_TOKEN,
@@ -41,6 +43,11 @@ export const serverEnv = z
   });
 
 export type NetworkMode = z.infer<typeof networkMode>;
+
+// Preview payment keys are isolated from production; they must never admit mainnet payments.
+if (process.env.VERCEL_ENV === "preview" && serverEnv.X402_NETWORK_MODE !== "base-sepolia") {
+  throw new Error("preview_requires_base_sepolia");
+}
 
 export const CAIP_NETWORK: Record<NetworkMode, `eip155:${number}`> = {
   "base-sepolia": "eip155:84532",

@@ -74,7 +74,7 @@ function request(server, method, path, headers = {}) {
 
 async function startApp(options) {
   const app = await createApp(env, {
-    gate: createPaymentGate({ remote: null, paidIpLimit: 50, maxUses: 3 }),
+    gate: createPaymentGate({ remote: null, requireRemote: false, paidIpLimit: 50, maxUses: 3 }),
     attachPayment: async (expressApp) => {
       expressApp.use((req, res, next) => {
         if (!sdkRouteMatches("/v1/dns", req.path, req.method) && !sdkRouteMatches("/v1/http-head", req.path, req.method)) {

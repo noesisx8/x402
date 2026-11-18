@@ -11,11 +11,19 @@ import {
   readSignedPayment,
   resolvePublicAddress,
   upstashPaymentLock,
+  upstashPaymentLockFromEnv,
 } from "../dist/index.js";
 
 const FROM = "0x" + "ab".repeat(20);
 const NONCE = "0x" + "11".repeat(32);
 const SIG = "0x" + "cd".repeat(65);
+
+test("preview isolation rejects mainnet and missing branch configuration", () => {
+  const env = { VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "fix/payments" };
+  assert.throws(() => upstashPaymentLockFromEnv({ ...env, X402_NETWORK_MODE: "base" }), /preview_requires_base_sepolia/);
+  assert.throws(() => upstashPaymentLockFromEnv({ VERCEL_ENV: "preview" }), /preview_payment_branch_missing/);
+  assert.equal(upstashPaymentLockFromEnv(env), null, "missing Redis still fails closed at admission");
+});
 
 function paymentHeader(overrides = {}) {
   const body = {
@@ -202,7 +210,7 @@ test("client errors never echo a provider URL or key", () => {
 });
 
 test("a forged payment envelope is rejected before any verify callback", async () => {
-  const gate = createPaymentGate({ paidIpLimit: 5, remote: null });
+  const gate = createPaymentGate({ paidIpLimit: 5, remote: null, requireRemote: false });
   let verifies = 0;
   const forged = Buffer.from(JSON.stringify({ x402Version: 2, accepted: { scheme: "exact" } })).toString("base64");
   const decision = await gate.begin(forged, "203.0.113.10");
@@ -216,7 +224,7 @@ test("a forged payment envelope is rejected before any verify callback", async (
 });
 
 test("paid attempts are rate limited per IP even when the envelope is forged", async () => {
-  const gate = createPaymentGate({ paidIpLimit: 2, remote: null });
+  const gate = createPaymentGate({ paidIpLimit: 2, remote: null, requireRemote: false });
   const forged = Buffer.from(JSON.stringify({ x402Version: 2, accepted: {} })).toString("base64");
   assert.equal((await gate.begin(forged, "198.51.100.8")).status, 400);
   assert.equal((await gate.begin(forged, "198.51.100.8")).status, 400);
@@ -226,7 +234,7 @@ test("paid attempts are rate limited per IP even when the envelope is forged", a
 });
 
 test("one authorization cannot run the handler more than once concurrently", async () => {
-  const gate = createPaymentGate({ maxUses: 3, remote: null });
+  const gate = createPaymentGate({ maxUses: 3, remote: null, requireRemote: false });
   const header = paymentHeader();
   let running = 0;
   let maxRunning = 0;
@@ -257,7 +265,7 @@ test("one authorization cannot run the handler more than once concurrently", asy
 });
 
 test("failed handler runs consume the authorization after the use cap", async () => {
-  const gate = createPaymentGate({ maxUses: 3, remote: null });
+  const gate = createPaymentGate({ maxUses: 3, remote: null, requireRemote: false });
   const header = paymentHeader({ nonce: "0x" + "22".repeat(32) });
   let runs = 0;
   for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -265,7 +273,7 @@ test("failed handler runs consume the authorization after the use cap", async ()
     assert.equal(decision.ok, true);
     if (decision.ok) {
       runs += 1;
-      await decision.finish(400);
+      await decision.finish(400, "retryable");
     }
   }
   const blocked = await gate.begin(header, "203.0.113.21");
@@ -275,12 +283,12 @@ test("failed handler runs consume the authorization after the use cap", async ()
 });
 
 test("the same payer is blocked after repeated free failures", async () => {
-  const gate = createPaymentGate({ maxUses: 3, payerFailLimit: 4, paidPayerLimit: 100, remote: null });
+  const gate = createPaymentGate({ maxUses: 3, payerFailLimit: 4, paidPayerLimit: 100, remote: null, requireRemote: false });
   for (let attempt = 0; attempt < 4; attempt += 1) {
     const header = paymentHeader({ nonce: "0x" + attempt.toString(16).padStart(64, "0") });
     const decision = await gate.begin(header, "203.0.113.22");
     assert.equal(decision.ok, true, `attempt ${attempt}`);
-    if (decision.ok) await decision.finish(400);
+    if (decision.ok) await decision.finish(400, "retryable");
   }
   const next = await gate.begin(paymentHeader({ nonce: "0x" + "33".repeat(32) }), "203.0.113.22");
   assert.equal(next.ok, false);
@@ -288,7 +296,7 @@ test("the same payer is blocked after repeated free failures", async () => {
 });
 
 test("a permit2 envelope is admitted and fingerprinted from its payer and nonce", async () => {
-  const gate = createPaymentGate({ remote: null });
+  const gate = createPaymentGate({ remote: null, requireRemote: false });
   const nonce = "123456789";
   const header = Buffer.from(
     JSON.stringify({
@@ -314,40 +322,12 @@ test("a permit2 envelope is admitted and fingerprinted from its payer and nonce"
   if (decision.ok) await decision.finish(200);
 });
 
-test("redis lock claims with SET NX and a second claim is busy", async () => {
-  const keys = new Map();
-  const fetchImpl = async (_url, init) => {
-    const commands = JSON.parse(init.body);
-    const results = commands.map((command) => {
-      const [op, key, value] = command;
-      if (op === "GET") return { result: keys.get(key) ?? null };
-      if (op === "SET" && command.includes("NX")) {
-        if (keys.has(key)) return { result: null };
-        keys.set(key, value);
-        return { result: "OK" };
-      }
-      if (op === "SET") {
-        keys.set(key, value);
-        return { result: "OK" };
-      }
-      if (op === "DEL") {
-        keys.delete(key);
-        return { result: 1 };
-      }
-      if (op === "INCR") {
-        const next = Number(keys.get(key) ?? 0) + 1;
-        keys.set(key, String(next));
-        return { result: next };
-      }
-      if (op === "EXPIRE") return { result: 1 };
-      throw new Error(`unexpected ${op}`);
-    });
-    return { ok: true, json: async () => results };
-  };
-  const lock = upstashPaymentLock("https://example.upstash.io", "token", fetchImpl);
-  const fingerprint = `${FROM.toLowerCase()}:${NONCE}`;
-  assert.equal(await lock.claim(fingerprint, 120, 3), "claimed");
-  assert.equal(await lock.claim(fingerprint, 120, 3), "busy");
-  await lock.finish(fingerprint, 200, 120, 3);
-  assert.equal(await lock.claim(fingerprint, 120, 3), "used");
+test("Redis REST errors fail closed, including error payloads in HTTP 200", async () => {
+  for (const json of [{ error: "ERR fixture" }, { result: "unexpected" }, null]) {
+    const remote = upstashPaymentLock("https://redis.invalid", "fixture", async () => ({ ok: true, json: async () => json }));
+    const gate = createPaymentGate({ remote });
+    const result = await gate.begin(paymentHeader(), "fixture");
+    assert.equal(result.ok, false);
+    assert.equal(result.status, 503);
+  }
 });

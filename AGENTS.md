@@ -56,6 +56,8 @@ npm run build          # next build
 npm run check          # tsc --noEmit (type check)
 npm run test:unit      # node scripts/phase0-unit.mjs — price caps + rate-limit contract (no network)
 npm run test:payment   # actual route/SDK with mocked facilitator; Node 22.15+, no network or wallet
+npm run test:guard     # includes disposable real Redis; requires redis-server + redis-cli
+npm run test:payment:redis # actual route/SDK + independent gates with disposable Redis; no funds
 npm run smoke:unpaid   # live 402 + discovery against production (no wallet)
 npm run smoke:paid     # PAID mainnet E2E — portalv2 only, needs X402_PRIVATE_KEY=0x…
 
@@ -74,7 +76,7 @@ Optional Docker for the vending machine: `docker build -t x402-vending .` in `ap
 ## Code organization & conventions (vending-machine)
 
 - **Add a paid service**: implement a handler in `lib/services/handlers.ts`, then append one entry (`slug`, `price` like `"$0.003"`, `description`, `queryParams`, `handler`) to `VENDING_SERVICES` in `lib/services/registry.ts`. The route `GET /api/v/{slug}` goes live automatically; discovery (`/.well-known/agent-services.json`, `/api/openapi.json`) derives from the registry.
-- **x402 flow** (`app/api/v/[slug]/route.ts`): handlers are wrapped with `withX402` from `@x402/next`; the shared facilitator-backed resource server is a per-isolate singleton (`lib/x402/resource-server.ts`). A payment fingerprint is admitted by `packages/request-guard` before that server is used. Settlement runs **only when the handler returns status < 400** — handlers signal bad input by returning 400, which cancels settlement (no charge on bad input). A 400 still consumes one of the fingerprint's uses.
+- **x402 flow** (`app/api/v/[slug]/route.ts`): handlers are wrapped with `withX402` from `@x402/next`; the shared facilitator-backed resource server is a per-isolate singleton (`lib/x402/resource-server.ts`). A payment fingerprint is admitted by `packages/request-guard` before that server is used. Settlement runs **only when the handler returns status < 400** — handlers signal bad input by returning 400, which cancels settlement (no charge on bad input). A proven pre-settlement failure still consumes one of the fingerprint's uses. Ambiguous outcomes remain blocked for reconciliation.
 - **Prices are display strings** (`"$0.003"`) parsed by `lib/pricing.ts`; every registry price is validated against `GLOBAL_MAX_PRICE_USD` (default **$0.05**, env `X402_MAX_PRICE_USD`) at module load — misconfigured routes fail closed at boot. Recommended floor: $0.002.
 - **Env validation** is zod-based at startup: `lib/env.ts` (vending-machine, with a placeholder pay-to so `next build` works without secrets) and `apps/api/src/server.ts` (`index.ts` only listens).
 - **Networks** are CAIP-2: `base` → `eip155:8453`, `base-sepolia` → `eip155:84532`.
@@ -94,7 +96,7 @@ Always run `npm run check` (tsc) and `npm run test:unit` after changes. Run `npm
 ## Security considerations (every change — see docs/SECURITY.md)
 
 - Request binding: `Payment-Required.resource.url` includes the full request URL (path + query); payments are not portable across routes.
-- Settlement only after a successful handler (< 400). The facilitator is not treated as a lock: `packages/request-guard` single-flights `from:nonce`, caps uses (default 3), and rejects a malformed envelope before verify. The ledger is in-memory per isolate. Redis (`KV_REST_API_*` or `UPSTASH_REDIS_REST_*`) covers other isolates when set. If Redis is unset or errors, same-isolate protection remains and cross-isolate replay is still possible (`payment_lock_unavailable`). See `docs/SECURITY.md`.
+- Settlement only after a successful handler (< 400). The facilitator is not treated as a lock: `packages/request-guard` single-flights `from:nonce`, caps uses (default 3), and rejects a malformed envelope before verify. The local ledger is backed by required atomic Redis admission (`KV_REST_API_*` or `UPSTASH_REDIS_REST_*`). Missing/unavailable Redis denies paid admission with retryable 503 `payment_lock_unavailable`. Owner tokens guard finalize; lease expiry preserves an unknown outcome rather than reopening admission. See `docs/PAYMENT_ADMISSION.md` for retention and rollout constraints. See `docs/SECURITY.md`.
 - Unpaid 402 spam is rate-limited per IP+slug (30 req/60s default, `X402_UNPAID_RATE_LIMIT` / `X402_UNPAID_RATE_WINDOW_MS`). Paid requests are limited per IP (20/60s) and per payer (30/60s), and a payer who fails repeatedly is cut off (`X402_PAYER_FAIL_LIMIT`).
 - Customer-URL fetches pin DNS answers, re-check every redirect, allow ports 80/443/8443, and fail closed. `apps/api` route keys are method-wildcards so HEAD is paid. Client errors are stable codes (`host_not_allowed`, `base_rpc_failed`, `upstream_failed`) and do not include upstream URLs.
 - Per-route price cap ($0.05 default) fails closed at boot.
