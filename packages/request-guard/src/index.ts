@@ -35,4 +35,4 @@ export type { RateLimitResult } from "./rate-limit.js";
 export { createPaymentGate, readSignedPayment } from "./payment.js";
 export type { BeginResult, PaymentAdmission, PaymentGate, PaymentRejection, SignedPayment } from "./payment.js";
 export { upstashPaymentLock, upstashPaymentLockFromEnv } from "./remote-lock.js";
-export type { RemoteClaim, RemotePaymentLock } from "./remote-lock.js";
+export type { RemoteClaim, RemotePaymentLock, PaymentOutcome } from "./remote-lock.js";

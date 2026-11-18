@@ -16,6 +16,7 @@ import {
   createRateLimiter,
   type RateLimitResult,
 } from "./rate-limit.js";
+import { randomUUID } from "node:crypto";
 import { type RemotePaymentLock } from "./remote-lock.js";
 
 const MIN_TTL_MS = 120_000;
@@ -31,7 +32,7 @@ export type SignedPayment = {
 
 export type PaymentRejection = {
   ok: false;
-  status: 400 | 409 | 429;
+  status: 400 | 409 | 429 | 503;
   error: string;
   retryAfterSec?: number;
 };
@@ -40,7 +41,8 @@ export type PaymentAdmission = {
   ok: true;
   payer: string;
   fingerprint: string;
-  finish(status: number): Promise<void>;
+  /** Failures are unknown unless the caller proves settlement could not have happened. */
+  finish(status: number, failure?: "retryable" | "unknown"): Promise<void>;
 };
 
 export type BeginResult = PaymentAdmission | PaymentRejection;
@@ -54,7 +56,8 @@ export type PaymentGateOptions = {
   paidWindowMs?: number;
   maxUses?: number;
   payerFailLimit?: number;
-  /** Pass null to force the in-memory ledger only. */
+  /** Local-only admission is for explicitly opted-in tests/development, never production. */
+  requireRemote?: boolean;
   remote?: RemotePaymentLock | null;
 };
 
@@ -62,6 +65,7 @@ type LedgerRecord = {
   inFlight: boolean;
   uses: number;
   consumed: boolean;
+  unknown: boolean;
   expiresAt: number;
 };
 
@@ -118,14 +122,12 @@ export function readSignedPayment(header: string, now = Date.now()): SignedPayme
   if (!nonceOk) return null;
 
   const expiryRaw = authorization ? auth.validBefore : auth.deadline;
-  let expiresAtMs = now + MIN_TTL_MS;
-  if (typeof expiryRaw === "string" && /^[0-9]{1,20}$/.test(expiryRaw)) {
-    const seconds = Number(expiryRaw);
-    if (Number.isFinite(seconds)) expiresAtMs = Math.max(expiresAtMs, seconds * 1000);
-  } else if (typeof expiryRaw === "number" && Number.isFinite(expiryRaw)) {
-    expiresAtMs = Math.max(expiresAtMs, expiryRaw * 1000);
-  }
-  expiresAtMs = Math.min(expiresAtMs, now + MAX_TTL_MS);
+  const seconds = typeof expiryRaw === "number" ? expiryRaw
+    : typeof expiryRaw === "string" && /^[0-9]{1,20}$/.test(expiryRaw) ? Number(expiryRaw) : NaN;
+  // Never silently forget an authorization while it can still be valid.
+  const expiry = seconds * 1000;
+  if (!Number.isSafeInteger(expiry) || expiry <= now || expiry > now + MAX_TTL_MS) return null;
+  const expiresAtMs = Math.max(now + MIN_TTL_MS, expiry + MIN_TTL_MS);
 
   const payer = from.toLowerCase();
   const normalizedNonce = nonce.toLowerCase();
@@ -153,6 +155,7 @@ export function createPaymentGate(options: PaymentGateOptions = {}): PaymentGate
   const maxUses = options.maxUses ?? PAYMENT_MAX_USES;
   const payerFailLimit = options.payerFailLimit ?? PAYER_FAIL_LIMIT;
   const remote = options.remote ?? null;
+  const requireRemote = process.env.NODE_ENV === "production" || options.requireRemote !== false;
   const limits = createRateLimiter();
   const ledger = new Map<string, LedgerRecord>();
   const streaks = new Map<string, FailStreak>();
@@ -216,10 +219,11 @@ export function createPaymentGate(options: PaymentGateOptions = {}): PaymentGate
       prune(at);
       let record = ledger.get(payment.fingerprint);
       if (!record || (record.expiresAt <= at && !record.inFlight)) {
-        record = { inFlight: false, uses: 0, consumed: false, expiresAt: payment.expiresAtMs };
+        record = { inFlight: false, uses: 0, consumed: false, unknown: false, expiresAt: payment.expiresAtMs };
         ledger.set(payment.fingerprint, record);
       }
       record.expiresAt = Math.max(record.expiresAt, payment.expiresAtMs);
+      if (record.unknown) return { ok: false, status: 409, error: "payment_outcome_unknown" };
       if (record.consumed) return { ok: false, status: 409, error: "payment_already_used" };
       if (record.inFlight) {
         return { ok: false, status: 429, error: "payment_already_in_progress", retryAfterSec: 1 };
@@ -239,19 +243,26 @@ export function createPaymentGate(options: PaymentGateOptions = {}): PaymentGate
         held.uses = Math.max(0, held.uses - 1);
       };
 
+      const owner = randomUUID();
+      if (!remote && requireRemote) {
+        cancel();
+        return { ok: false, status: 503, error: "payment_lock_unavailable", retryAfterSec: 1 };
+      }
       if (remote) {
         const ttlSec = Math.max(120, Math.ceil((held.expiresAt - at) / 1000));
         try {
-          const claim = await remote.claim(payment.fingerprint, ttlSec, maxUses);
+          const claim = await remote.claim(payment.fingerprint, owner, ttlSec, maxUses);
           if (claim !== "claimed") {
             cancel();
+            if (claim === "unknown") return { ok: false, status: 409, error: "payment_outcome_unknown" };
             if (claim === "used") return { ok: false, status: 409, error: "payment_already_used" };
             if (claim === "capped") return { ok: false, status: 429, error: "payment_use_cap", retryAfterSec: 1 };
             return { ok: false, status: 429, error: "payment_already_in_progress", retryAfterSec: 1 };
           }
         } catch {
-          // Same-isolate lock still holds. Cross-isolate replay is open until Redis answers again.
+          cancel();
           console.error(JSON.stringify({ scope: "x402", event: "payment_lock_unavailable" }));
+          return { ok: false, status: 503, error: "payment_lock_unavailable", retryAfterSec: 1 };
         }
       }
 
@@ -259,18 +270,23 @@ export function createPaymentGate(options: PaymentGateOptions = {}): PaymentGate
         ok: true,
         payer: payment.payer,
         fingerprint: payment.fingerprint,
-        async finish(status: number) {
+        async finish(status: number, failure?: "retryable" | "unknown") {
           if (settled) return;
           settled = true;
-          held.inFlight = false;
-          if (status < 400) held.consumed = true;
+          const outcome = status < 400 ? "used" : failure ?? "unknown";
+          held.consumed = outcome === "used";
+          held.unknown = outcome === "unknown";
           notePayer(payment.payer, status, now());
-          if (!remote) return;
-          const ttlSec = Math.max(120, Math.ceil((held.expiresAt - now()) / 1000));
           try {
-            await remote.finish(payment.fingerprint, status, ttlSec, maxUses);
+            if (remote && !await remote.finish(payment.fingerprint, owner, outcome)) {
+              held.unknown = true;
+            }
           } catch {
+            // Redis may have committed before the response was lost. Never reopen locally.
+            held.unknown = true;
             console.error(JSON.stringify({ scope: "x402", event: "payment_lock_unavailable" }));
+          } finally {
+            held.inFlight = false;
           }
         },
       };

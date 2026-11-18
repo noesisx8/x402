@@ -1,91 +1,78 @@
-/**
- * Optional cross-isolate lock via Upstash Redis REST (Vercel KV).
- * In-memory admission still runs when this is unset or unreachable.
- */
-
-export type RemoteClaim = "claimed" | "busy" | "used" | "capped";
-
+/** Cross-isolate admission via Redis REST. Pending claims never become retryable on lease expiry. */
+export type RemoteClaim = "claimed" | "busy" | "used" | "capped" | "unknown";
+export type PaymentOutcome = "used" | "retryable" | "unknown";
 export type RemotePaymentLock = {
-  claim(fingerprint: string, ttlSec: number, maxUses: number): Promise<RemoteClaim>;
-  finish(fingerprint: string, httpStatus: number, ttlSec: number, maxUses: number): Promise<void>;
+  claim(fingerprint: string, owner: string, ttlSec: number, maxUses: number): Promise<RemoteClaim>;
+  finish(fingerprint: string, owner: string, outcome: PaymentOutcome): Promise<boolean>;
 };
 
 type FetchLike = (
   url: string,
-  init?: { method?: string; headers?: Record<string, string>; body?: string },
+  init?: { method?: string; headers?: Record<string, string>; body?: string; signal?: AbortSignal },
 ) => Promise<{ ok: boolean; json(): Promise<unknown> }>;
 
-function unwrapPipeline(payload: unknown): unknown[] {
-  if (Array.isArray(payload)) {
-    return payload.map((item) => {
-      if (item && typeof item === "object" && "result" in item) {
-        return (item as { result: unknown }).result;
-      }
-      return item;
-    });
-  }
-  if (payload && typeof payload === "object" && "result" in payload) {
-    return unwrapPipeline((payload as { result: unknown }).result);
-  }
-  throw new Error("payment_lock_unavailable");
-}
+// All reads, the use reservation and the lease acquisition run in a single Redis operation.
+const CLAIM = `
+local state = redis.call('GET', KEYS[1])
+if state == 'used' then return 'used' end
+if state == 'unknown' then return 'unknown' end
+if redis.call('EXISTS', KEYS[3]) == 1 then return 'busy' end
+if state == 'pending' then
+  redis.call('SET', KEYS[1], 'unknown', 'KEEPTTL')
+  return 'unknown'
+end
+local uses = tonumber(redis.call('GET', KEYS[2]) or '0')
+if uses >= tonumber(ARGV[3]) then return 'capped' end
+redis.call('SET', KEYS[1], 'pending', 'EX', ARGV[2])
+redis.call('SET', KEYS[2], uses + 1, 'EX', ARGV[2])
+redis.call('SET', KEYS[3], ARGV[1], 'EX', math.min(90, tonumber(ARGV[2])))
+return 'claimed'
+`;
+
+const FINISH = `
+if redis.call('GET', KEYS[3]) ~= ARGV[1] then return 0 end
+if ARGV[2] == 'retryable' then
+  redis.call('DEL', KEYS[1])
+else
+  redis.call('SET', KEYS[1], ARGV[2], 'KEEPTTL')
+end
+redis.call('DEL', KEYS[3])
+return 1
+`;
 
 export function upstashPaymentLock(restUrl: string, token: string, fetchImpl: FetchLike = fetch): RemotePaymentLock {
   const base = restUrl.replace(/\/$/, "");
-  const stateKey = (fingerprint: string) => `x402:pay:state:${fingerprint}`;
-  const usesKey = (fingerprint: string) => `x402:pay:uses:${fingerprint}`;
-  const lockKey = (fingerprint: string) => `x402:pay:lock:${fingerprint}`;
-
-  async function pipeline(commands: (string | number)[][]): Promise<unknown[]> {
-    const response = await fetchImpl(`${base}/pipeline`, {
+  const keys = (fingerprint: string) => [
+    `x402:pay:state:${fingerprint}`,
+    `x402:pay:uses:${fingerprint}`,
+    `x402:pay:lock:${fingerprint}`,
+  ];
+  async function evaluate(script: string, fingerprint: string, args: (string | number)[]): Promise<unknown> {
+    const response = await fetchImpl(base, {
       method: "POST",
-      headers: {
-        authorization: `Bearer ${token}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(commands),
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify(["EVAL", script, 3, ...keys(fingerprint), ...args]),
+      signal: AbortSignal.timeout(3000),
     });
     if (!response.ok) throw new Error("payment_lock_unavailable");
-    return unwrapPipeline(await response.json());
+    const payload = await response.json();
+    if (!payload || typeof payload !== "object" || "error" in payload || !("result" in payload)) {
+      throw new Error("payment_lock_unavailable");
+    }
+    return (payload as { result: unknown }).result;
   }
-
   return {
-    async claim(fingerprint, ttlSec, maxUses) {
-      const lockTtl = Math.min(90, Math.max(30, ttlSec));
-      const [state, uses, locked] = await pipeline([
-        ["GET", stateKey(fingerprint)],
-        ["GET", usesKey(fingerprint)],
-        ["SET", lockKey(fingerprint), "1", "NX", "EX", String(lockTtl)],
-      ]);
-      const hold = locked === "OK";
-      if (state === "used") {
-        if (hold) await pipeline([["DEL", lockKey(fingerprint)]]);
-        return "used";
+    async claim(fingerprint, owner, ttlSec, maxUses) {
+      const result = await evaluate(CLAIM, fingerprint, [owner, ttlSec, maxUses]);
+      if (typeof result !== "string" || !["claimed", "busy", "used", "capped", "unknown"].includes(result)) {
+        throw new Error("payment_lock_unavailable");
       }
-      const useCount = Number(uses ?? 0);
-      if (Number.isFinite(useCount) && useCount >= maxUses) {
-        if (hold) await pipeline([["DEL", lockKey(fingerprint)]]);
-        return "capped";
-      }
-      return hold ? "claimed" : "busy";
+      return result as RemoteClaim;
     },
-
-    async finish(fingerprint, httpStatus, ttlSec, maxUses) {
-      if (httpStatus < 400) {
-        await pipeline([
-          ["SET", stateKey(fingerprint), "used", "EX", String(ttlSec)],
-          ["DEL", lockKey(fingerprint)],
-        ]);
-        return;
-      }
-      const [uses] = await pipeline([
-        ["INCR", usesKey(fingerprint)],
-        ["EXPIRE", usesKey(fingerprint), String(ttlSec)],
-        ["DEL", lockKey(fingerprint)],
-      ]);
-      if (Number(uses) >= maxUses) {
-        await pipeline([["SET", stateKey(fingerprint), "used", "EX", String(ttlSec)]]);
-      }
+    async finish(fingerprint, owner, outcome) {
+      const result = await evaluate(FINISH, fingerprint, [owner, outcome]);
+      if (result !== 0 && result !== 1) throw new Error("payment_lock_unavailable");
+      return result === 1;
     },
   };
 }
